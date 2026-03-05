@@ -3,8 +3,11 @@ from sqlmodel import Session, select
 from datetime import datetime, timedelta
 from core.database import get_db
 from models.match import Match
+from models.team import Team
+from models.competition import Competition
 from schemas.match import MatchListResponse, MatchBase
 from sqlalchemy import or_
+from sqlalchemy.orm import aliased
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -33,17 +36,38 @@ async def get_matches(
     if date_from == date_to:
         date_to = date_to + timedelta(days=1)
 
-    statement = select(Match).where(
-        Match.utc_date >= date_from,
-        Match.utc_date <= date_to
+    home_team = aliased(Team)
+    away_team = aliased(Team)
+
+    statement = (
+        select(
+            Match,
+            home_team.short_name.label("home_team_name"),
+            away_team.short_name.label("away_team_name"),
+            Competition.name.label("competition_name")
+        )
+        .join(home_team, Match.home_team_id == home_team.id)
+        .join(away_team, Match.away_team_id == away_team.id)
+        .join(Competition, Match.competition_id == Competition.id)
+        .where(
+            Match.utc_date >= date_from,
+            Match.utc_date <= date_to
+        )
     )
 
     if status:
         statement = statement.where(Match.status == status)
 
-    matches = (await session.execute(statement)).scalars().all()
+    result = await session.execute(statement)
+    matches_data = []
+    for match, h_name, a_name, c_name in result:
+        m_dict = match.model_dump()
+        m_dict["home_team_name"] = h_name
+        m_dict["away_team_name"] = a_name
+        m_dict["competition_name"] = c_name
+        matches_data.append(m_dict)
 
-    return {"matches": matches}
+    return {"matches": matches_data}
 
 from fastapi import HTTPException
 from models.match import Match

@@ -46,6 +46,11 @@ def _verify_clerk_token(token: str) -> dict:
         # Fetch the matching public key from the JWKS (uses kid header claim)
         signing_key = client.get_signing_key_from_jwt(token)
     except PyJWKClientError as exc:
+        print(f"JWKS_URL={settings.JWKS_URL}")
+        try:
+            print(f"Available keys: {client.get_jwk_set().keys}")
+        except:
+            pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Could not fetch Clerk signing key: {exc}",

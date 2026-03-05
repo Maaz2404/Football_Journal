@@ -32,7 +32,9 @@ export async function fetchFromApi(endpoint: string, options: RequestInit = {}) 
     const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        let errorDetails = "";
+        try { errorDetails = await response.text(); } catch (e) { }
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorDetails}`);
     }
 
     return response.json();

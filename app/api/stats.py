@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 from calendar import monthrange
 from sqlmodel import Session
 from models.match import Match
+from models.team import Team
+from models.competition import Competition
+from models.player import Player
 from models.review import Review
 from models.review_player_tag import ReviewPlayerTag, ReviewPlayerTagType
 from models.user import User
@@ -36,6 +39,19 @@ def build_date_range(range_type: str, month: int = None, year: int = None):
         end = datetime(year, 12, 31, 23, 59, 59)
         return start, end
 
+    if range_type == "custom":
+        if month and year:
+            # custom with month+year → monthly window
+            start = datetime(year, month, 1)
+            last_day = monthrange(year, month)[1]
+            end = datetime(year, month, last_day, 23, 59, 59)
+            return start, end
+        if year:
+            # custom with year only → full year
+            start = datetime(year, 1, 1)
+            end = datetime(year, 12, 31, 23, 59, 59)
+            return start, end
+
     return None, None
 
 
@@ -49,9 +65,20 @@ async def get_my_matches(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    home_team = aliased(Team)
+    away_team = aliased(Team)
+
     stmt = (
-        select(Match)
+        select(
+            Match,
+            home_team.short_name.label("home_team_name"),
+            away_team.short_name.label("away_team_name"),
+            Competition.name.label("competition_name")
+        )
         .join(Review, Review.match_id == Match.id)
+        .join(home_team, Match.home_team_id == home_team.id)
+        .join(away_team, Match.away_team_id == away_team.id)
+        .join(Competition, Match.competition_id == Competition.id)
         .where(Review.user_id == current_user.id)
         .order_by(Match.utc_date.desc())
         .limit(limit)
@@ -63,9 +90,15 @@ async def get_my_matches(
         stmt = stmt.where(Match.utc_date >= start, Match.utc_date <= end)
 
     result = await session.execute(stmt)
-    matches = result.scalars().all()
+    matches_data = []
+    for match, h_name, a_name, c_name in result:
+        m_dict = match.model_dump()
+        m_dict["home_team_name"] = h_name
+        m_dict["away_team_name"] = a_name
+        m_dict["competition_name"] = c_name
+        matches_data.append(m_dict)
 
-    return matches
+    return matches_data
 
 from sqlalchemy import func, union_all
 
@@ -97,8 +130,9 @@ async def get_my_teams(
     union_stmt = union_all(base_query, away_query).subquery()
 
     stmt = (
-        select(union_stmt.c.team_id, func.count().label("count"))
-        .group_by(union_stmt.c.team_id)
+        select(union_stmt.c.team_id, Team.short_name.label("team_name"), func.count().label("count"))
+        .join(Team, union_stmt.c.team_id == Team.id)
+        .group_by(union_stmt.c.team_id, Team.short_name)
         .order_by(func.count().desc())
     )
 
@@ -117,15 +151,17 @@ async def get_my_top_motm_player(
     stmt = (
         select(
             ReviewPlayerTag.player_id,
+            Player.name.label("player_name"),
             func.count().label("count")
         )
         .join(Review, Review.id == ReviewPlayerTag.review_id)
         .join(Match, Match.id == Review.match_id)
+        .join(Player, Player.id == ReviewPlayerTag.player_id)
         .where(
             Review.user_id == current_user.id,
             ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
         )
-        .group_by(ReviewPlayerTag.player_id)
+        .group_by(ReviewPlayerTag.player_id, Player.name)
         .order_by(func.count().desc())
         .limit(1)
     )
@@ -149,11 +185,13 @@ async def get_my_top_competition(
     stmt = (
         select(
             Match.competition_id,
+            Competition.name.label("competition_name"),
             func.count().label("count")
         )
         .join(Review, Review.match_id == Match.id)
+        .join(Competition, Competition.id == Match.competition_id)
         .where(Review.user_id == current_user.id)
-        .group_by(Match.competition_id)
+        .group_by(Match.competition_id, Competition.name)
         .order_by(func.count().desc())
         .limit(1)
     )
@@ -196,14 +234,16 @@ async def get_match_motm_leader(
     stmt = (
         select(
             ReviewPlayerTag.player_id,
+            Player.name.label("player_name"),
             func.count().label("count")
         )
         .join(Review, Review.id == ReviewPlayerTag.review_id)
+        .join(Player, Player.id == ReviewPlayerTag.player_id)
         .where(
             Review.match_id == match_id,
             ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
         )
-        .group_by(ReviewPlayerTag.player_id)
+        .group_by(ReviewPlayerTag.player_id, Player.name)
         .order_by(func.count().desc())
         .limit(1)
     )
