@@ -9,7 +9,7 @@ export function Navbar() {
                 <Link href="/" className="flex items-center space-x-2">
                     <div className="relative h-10 w-32">
                         <Image
-                            src="/FootBook Text Logo.jpg"
+                            src="/FootBook Full Logo.jpg"
                             alt="FootBook Logo"
                             fill
                             className="object-contain"

@@ -20,17 +20,17 @@ export function DateSelector({ currentDate, prevLink, nextLink }: DateSelectorPr
     return (
         <div className="flex items-center justify-between bg-card text-card-foreground shadow-sm rounded-xl border p-2 mb-6 max-w-xl mx-auto w-full mt-4">
             <Link href={prevLink}>
-                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 hover:bg-[#F4F4F4] cursor-pointer" type="button">
-                    <ChevronLeft className="h-5 w-5 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 hover:bg-foreground/5 cursor-pointer" type="button">
+                    <ChevronLeft className="h-5 w-5 text-foreground/70" />
                     <span className="sr-only">Previous Day</span>
                 </Button>
             </Link>
-            <div className="flex-1 text-center font-semibold text-[15px] sm:text-base text-gray-800">
+            <div className="flex-1 text-center font-semibold text-[15px] sm:text-base text-foreground">
                 {getDisplayDate(currentDate)}
             </div>
             <Link href={nextLink}>
-                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 hover:bg-[#F4F4F4] cursor-pointer" type="button">
-                    <ChevronRight className="h-5 w-5 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 hover:bg-foreground/5 cursor-pointer" type="button">
+                    <ChevronRight className="h-5 w-5 text-foreground/70" />
                     <span className="sr-only">Next Day</span>
                 </Button>
             </Link>

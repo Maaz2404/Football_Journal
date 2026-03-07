@@ -8,10 +8,10 @@ interface FocusLevelSelectorProps {
 }
 
 export function FocusLevelSelector({ value, onChange }: FocusLevelSelectorProps) {
-    const options: { color: FocusLevel; label: string; bgClass: string; activeClass: string; textClass: string }[] = [
-        { color: "red", label: "Low", bgClass: "bg-red-50", activeClass: "bg-red-100 border-red-500", textClass: "text-red-700" },
-        { color: "yellow", label: "Medium", bgClass: "bg-yellow-50", activeClass: "bg-yellow-100 border-yellow-500", textClass: "text-yellow-700" },
-        { color: "green", label: "High", bgClass: "bg-green-50", activeClass: "bg-green-100 border-green-500", textClass: "text-green-700" },
+    const options: { color: FocusLevel; label: string; activeClass: string }[] = [
+        { color: "red", label: "Low", activeClass: "bg-red-500/10 border-red-500 text-red-500" },
+        { color: "yellow", label: "Medium", activeClass: "bg-yellow-500/10 border-yellow-500 text-yellow-500" },
+        { color: "green", label: "High", activeClass: "bg-green-500/10 border-green-500 text-green-500" },
     ];
 
     return (
@@ -25,7 +25,7 @@ export function FocusLevelSelector({ value, onChange }: FocusLevelSelectorProps)
                         "flex-1 py-2 px-3 rounded-full border text-sm font-medium transition-all text-center flex items-center justify-center cursor-pointer",
                         value === opt.color
                             ? opt.activeClass
-                            : "border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            : "border-border bg-foreground/5 text-foreground/60 hover:bg-foreground/10"
                     )}
                 >
                     <span className={cn("mr-2 inline-block w-2.5 h-2.5 rounded-full shrink-0",

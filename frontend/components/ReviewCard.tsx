@@ -13,16 +13,16 @@ export interface ReviewProps {
 
 export function ReviewCard({ review }: { review: ReviewProps }) {
     return (
-        <Card className="mb-4 bg-white/50 border-gray-100 hover:bg-white transition-colors">
+        <Card className="mb-4 bg-card border-border hover:bg-foreground/5 transition-colors">
             <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-[#06402B] flex items-center justify-center font-bold text-white text-sm shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-brand flex items-center justify-center font-bold text-white text-sm shrink-0">
                             {review.username.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-gray-800">{review.username}</p>
-                            <p className="text-xs text-gray-400">{review.timeAgo}</p>
+                            <p className="text-sm font-semibold text-foreground">{review.username}</p>
+                            <p className="text-xs text-foreground/40">{review.timeAgo}</p>
                         </div>
                     </div>
                     <div className={cn(
@@ -39,18 +39,18 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
                     </div>
                 </div>
 
-                <p className="text-sm text-gray-700 leading-relaxed mb-4">
+                <p className="text-sm text-foreground/80 leading-relaxed mb-4">
                     {review.notes}
                 </p>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-50">
-                    <button className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#2E8B57] transition-colors cursor-pointer group">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:fill-[#2E8B57]/20"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" /></svg>
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-border">
+                    <button className="flex items-center gap-1.5 text-sm text-foreground/50 hover:text-accent transition-colors cursor-pointer group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:fill-accent/20"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" /></svg>
                         <span className="font-medium">{review.likes}</span>
                     </button>
 
                     {review.motm && (
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-50 px-2 py-1.5 rounded-md border min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/70 bg-foreground/5 px-2 py-1.5 rounded-md border border-border min-w-0">
                             <span className="text-yellow-500 shrink-0">★</span>
                             <span className="truncate">MOTM: {review.motm}</span>
                         </div>

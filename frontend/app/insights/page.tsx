@@ -70,7 +70,7 @@ export default async function InsightsPage({
             </div>
 
             {error ? (
-                <div className="text-center p-8 bg-red-50 text-red-600 rounded-xl border border-red-100">
+                <div className="text-center p-8 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20">
                     {error}
                 </div>
             ) : (
