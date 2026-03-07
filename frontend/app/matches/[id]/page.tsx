@@ -12,14 +12,23 @@ export default async function MatchPage({
     const { id } = await params;
     let matchData = null;
     let reviewsData = [];
+    let motmLeaders = [];
 
     try {
         matchData = await fetchFromApi(`/matches/${id}`);
         try {
             reviewsData = await fetchFromApi(`/reviews/match/${id}`);
         } catch (e) {
-            // It's possible reviews endpoint might fail if empty, or we ignore
             reviewsData = [];
+        }
+        try {
+            motmLeaders = await fetchFromApi(`/stats/match/${id}/motm-leader`);
+            // Ensure motmLeaders behaves robustly if empty or wrapped incorrectly
+            if (!Array.isArray(motmLeaders)) {
+                motmLeaders = [];
+            }
+        } catch (e) {
+            motmLeaders = [];
         }
     } catch (e) {
         console.error(e);
@@ -32,7 +41,7 @@ export default async function MatchPage({
 
     return (
         <div className="w-full animate-in fade-in duration-500">
-            <MatchClient matchData={matchData} initialReviews={reviewsData} />
+            <MatchClient matchData={matchData} initialReviews={reviewsData} motmLeaders={motmLeaders} />
         </div>
     );
 }

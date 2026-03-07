@@ -72,7 +72,9 @@ async def get_my_matches(
         select(
             Match,
             home_team.short_name.label("home_team_name"),
+            home_team.crest_url.label("home_team_crest"),
             away_team.short_name.label("away_team_name"),
+            away_team.crest_url.label("away_team_crest"),
             Competition.name.label("competition_name")
         )
         .join(Review, Review.match_id == Match.id)
@@ -91,10 +93,12 @@ async def get_my_matches(
 
     result = await session.execute(stmt)
     matches_data = []
-    for match, h_name, a_name, c_name in result:
+    for match, h_name, h_crest, a_name, a_crest, c_name in result:
         m_dict = match.model_dump()
         m_dict["home_team_name"] = h_name
+        m_dict["home_team_crest"] = h_crest
         m_dict["away_team_name"] = a_name
+        m_dict["away_team_crest"] = a_crest
         m_dict["competition_name"] = c_name
         matches_data.append(m_dict)
 
@@ -130,9 +134,14 @@ async def get_my_teams(
     union_stmt = union_all(base_query, away_query).subquery()
 
     stmt = (
-        select(union_stmt.c.team_id, Team.short_name.label("team_name"), func.count().label("count"))
+        select(
+            union_stmt.c.team_id, 
+            Team.short_name.label("team_name"), 
+            Team.crest_url.label("crest_url"),
+            func.count().label("count")
+        )
         .join(Team, union_stmt.c.team_id == Team.id)
-        .group_by(union_stmt.c.team_id, Team.short_name)
+        .group_by(union_stmt.c.team_id, Team.short_name, Team.crest_url)
         .order_by(func.count().desc())
     )
 
@@ -229,6 +238,7 @@ async def get_total_matches(
 @router.get("/match/{match_id}/motm-leader")
 async def get_match_motm_leader(
     match_id: int,
+    limit: int = 3,
     session: Session = Depends(get_db),
 ):
     stmt = (
@@ -245,9 +255,9 @@ async def get_match_motm_leader(
         )
         .group_by(ReviewPlayerTag.player_id, Player.name)
         .order_by(func.count().desc())
-        .limit(1)
+        .limit(limit)
     )
 
     result = await session.execute(stmt)
-    row = result.first()
-    return dict(row._mapping) if row else None
+    rows = result.all()
+    return [dict(row._mapping) for row in rows]

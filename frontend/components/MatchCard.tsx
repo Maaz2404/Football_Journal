@@ -11,6 +11,8 @@ export interface MatchProps {
     awayScore: number | null;
     status: "SCHEDULED" | "FINISHED" | string;
     utcDate: string;
+    homeTeamCrest?: string;
+    awayTeamCrest?: string;
 }
 
 export function MatchCard({ match }: { match: MatchProps }) {
@@ -22,16 +24,30 @@ export function MatchCard({ match }: { match: MatchProps }) {
             <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                 <div className="flex flex-col gap-1 w-full max-w-[220px] sm:max-w-sm">
                     <span className="text-xs text-foreground/50 font-semibold uppercase tracking-wider mb-1">{match.competition}</span>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-3 mt-2">
                         <div className="flex items-center justify-between font-medium sm:text-lg">
-                            <span className="truncate text-foreground/90">{match.homeTeam}</span>
-                            <span className={cn("ml-4", isFinished ? "font-bold text-foreground" : "text-foreground/40 font-normal")}>
+                            <div className="flex items-center gap-3 truncate pr-2">
+                                {match.homeTeamCrest ? (
+                                    <img src={match.homeTeamCrest} alt={match.homeTeam} className="w-5 h-5 object-contain" />
+                                ) : (
+                                    <div className="w-5 h-5 bg-foreground/10 rounded-full" />
+                                )}
+                                <span className="truncate text-foreground/90">{match.homeTeam}</span>
+                            </div>
+                            <span className={cn("ml-4 shrink-0", isFinished ? "font-bold text-foreground" : "text-foreground/40 font-normal")}>
                                 {isFinished ? (match.homeScore ?? 0) : "-"}
                             </span>
                         </div>
                         <div className="flex items-center justify-between font-medium sm:text-lg">
-                            <span className="truncate text-foreground/90">{match.awayTeam}</span>
-                            <span className={cn("ml-4", isFinished ? "font-bold text-foreground" : "text-foreground/40 font-normal")}>
+                            <div className="flex items-center gap-3 truncate pr-2">
+                                {match.awayTeamCrest ? (
+                                    <img src={match.awayTeamCrest} alt={match.awayTeam} className="w-5 h-5 object-contain" />
+                                ) : (
+                                    <div className="w-5 h-5 bg-foreground/10 rounded-full" />
+                                )}
+                                <span className="truncate text-foreground/90">{match.awayTeam}</span>
+                            </div>
+                            <span className={cn("ml-4 shrink-0", isFinished ? "font-bold text-foreground" : "text-foreground/40 font-normal")}>
                                 {isFinished ? (match.awayScore ?? 0) : "-"}
                             </span>
                         </div>
@@ -39,10 +55,12 @@ export function MatchCard({ match }: { match: MatchProps }) {
                 </div>
 
                 <div className="flex flex-col items-end gap-2 shrink-0 border-l border-border pl-4 sm:pl-6 ml-2 min-w-[60px]">
-                    <span className={cn("text-xs font-bold px-2 py-0.5 rounded",
-                        isFinished ? "text-foreground/40" : "bg-accent/20 text-accent font-semibold")}>
-                        {isFinished ? "FT" : match.status === "SCHEDULED" ? "SOON" : match.status}
-                    </span>
+                    {match.status !== "TIMED" && match.status !== "SCHEDULED" && (
+                        <span className={cn("text-xs font-bold px-2 py-0.5 rounded",
+                            isFinished ? "text-foreground/40" : "bg-accent/20 text-accent font-semibold")}>
+                            {isFinished ? "FT" : match.status.replace(/_/g, " ")}
+                        </span>
+                    )}
                     <span className="text-xs text-foreground/50 whitespace-nowrap text-right flex flex-col items-end">
                         <span>{new Date(match.utcDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                         <span>{new Date(match.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>

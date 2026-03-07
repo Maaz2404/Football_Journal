@@ -5,7 +5,7 @@ from sqlmodel import Session,select
 from fastapi import HTTPException
 
 
-def validate_motm_player(
+async def validate_motm_player(
     session: Session,
     player_id: int,
     match: Match
@@ -24,7 +24,7 @@ def validate_motm_player(
         )
     )
 
-    squad_entry = session.exec(statement).first()
+    squad_entry = await session.execute(statement).first()
 
     if not squad_entry:
         raise HTTPException(

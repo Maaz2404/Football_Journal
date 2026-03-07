@@ -44,6 +44,8 @@ async def get_matches(
             Match,
             home_team.short_name.label("home_team_name"),
             away_team.short_name.label("away_team_name"),
+            home_team.crest_url.label("home_team_crest"),
+            away_team.crest_url.label("away_team_crest"),
             Competition.name.label("competition_name")
         )
         .join(home_team, Match.home_team_id == home_team.id)
@@ -60,10 +62,12 @@ async def get_matches(
 
     result = await session.execute(statement)
     matches_data = []
-    for match, h_name, a_name, c_name in result:
+    for match, h_name, a_name, h_crest, a_crest, c_name in result:
         m_dict = match.model_dump()
         m_dict["home_team_name"] = h_name
         m_dict["away_team_name"] = a_name
+        m_dict["home_team_crest"] = h_crest
+        m_dict["away_team_crest"] = a_crest
         m_dict["competition_name"] = c_name
         matches_data.append(m_dict)
 

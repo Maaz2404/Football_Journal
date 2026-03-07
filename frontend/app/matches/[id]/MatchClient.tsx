@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FocusLevelSelector } from "@/components/FocusLevelSelector";
 import { ReviewCard } from "@/components/ReviewCard";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { cn } from "@/lib/utils";
 
-export function MatchClient({ matchData, initialReviews }: { matchData: any, initialReviews: any[] }) {
+export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { matchData: any, initialReviews: any[], motmLeaders?: any[] }) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
     const [notes, setNotes] = useState("");
     const [motm, setMotm] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [dbUser, setDbUser] = useState<any>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [showAllMotm, setShowAllMotm] = useState(false);
 
     const { match, home_team, away_team, home_squad_players, away_squad_players } = matchData;
     const isFinished = match.status === "FINISHED";
@@ -19,6 +23,33 @@ export function MatchClient({ matchData, initialReviews }: { matchData: any, ini
     const router = useRouter();
 
     const allPlayers = [...(home_squad_players || []), ...(away_squad_players || [])];
+
+    useEffect(() => {
+        let isMounted = true;
+        if (isSignedIn) {
+            getToken().then(token => {
+                // Use relative path or dynamic base if possible, but for client-side local dev 
+                // we'll try to be more robust. Prefer process.env.NEXT_PUBLIC_API_URL if exists.
+                const baseUrl = "http://127.0.0.1:8000";
+                fetch(`${baseUrl}/auth/me`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                })
+                    .then(r => { if (r.ok) return r.json(); return null; })
+                    .then(data => {
+                        if (isMounted) setDbUser(data);
+                    })
+                    .catch(() => { });
+            });
+        }
+        return () => { isMounted = false; };
+    }, [isSignedIn, getToken]);
+
+    const userReview = dbUser ? initialReviews.find(r => r.user_id === dbUser.id) : null;
+    const allReviewsList = initialReviews;
+
+    useEffect(() => {
+        if (focus === 'red') setMotm("");
+    }, [focus]);
 
     const onSubmit = async () => {
         if (!isSignedIn) {
@@ -35,12 +66,19 @@ export function MatchClient({ matchData, initialReviews }: { matchData: any, ini
                 notes: notes,
             };
 
-            if (motm) {
+            if (focus === 'red') {
+                payload.motm_player_id = null;
+            } else if (motm) {
                 payload.motm_player_id = parseInt(motm, 10);
+            } else {
+                payload.motm_player_id = null;
             }
 
-            const res = await fetch(`http://127.0.0.1:8000/reviews`, {
-                method: "POST",
+            const url = userReview && isEditing ? `http://127.0.0.1:8000/reviews/${userReview.id}` : `http://127.0.0.1:8000/reviews`;
+            const method = userReview && isEditing ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method: method,
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
@@ -52,9 +90,35 @@ export function MatchClient({ matchData, initialReviews }: { matchData: any, ini
                 const errorData = await res.json();
                 alert(errorData.detail || "Failed to submit review");
             } else {
-                setNotes("");
-                setMotm("");
-                router.refresh(); // Refresh server state to get new review
+                if (!isEditing) {
+                    setNotes("");
+                    setMotm("");
+                }
+                setIsEditing(false);
+                router.refresh();
+            }
+        } catch (e) {
+            console.error(e);
+            alert("An error occurred");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const onDelete = async () => {
+        if (!userReview || !confirm("Are you sure you want to delete your review?")) return;
+        try {
+            setIsSubmitting(true);
+            const token = await getToken();
+            const res = await fetch(`http://127.0.0.1:8000/reviews/${userReview.id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!res.ok) {
+                const errorData = await res.json();
+                alert(errorData.detail || "Failed to delete review");
+            } else {
+                router.refresh();
             }
         } catch (e) {
             console.error(e);
@@ -67,81 +131,188 @@ export function MatchClient({ matchData, initialReviews }: { matchData: any, ini
     return (
         <div className="max-w-5xl mx-auto">
             {/* Header */}
-            <div className="mb-8 text-center sm:text-left bg-card p-6 sm:p-8 rounded-2xl shadow-sm border border-border">
-                <span className="text-sm text-foreground/50 font-semibold tracking-wider mb-2 block uppercase">
-                    Match Details • {new Date(match.utc_date).toLocaleDateString()}
-                </span>
-                <h1 className="text-2xl sm:text-4xl font-bold text-foreground flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 mt-2">
-                    <span>{home_team.name}</span>
-                    <span className="text-foreground/30 font-light text-xl sm:text-3xl">
-                        {isFinished ? (
-                            <span className="text-foreground font-bold bg-foreground/5 px-4 py-1 rounded-xl border border-border">
-                                {match.home_score} - {match.away_score}
+            {/* Header */}
+            <div className="mb-14 flex flex-col items-center justify-center pt-8">
+                {/* Community MOTM Top 3 Card (Moved above score) */}
+                {motmLeaders && motmLeaders.length > 0 && (
+                    <div className="mb-8 relative z-10 flex flex-col items-center">
+                        <div
+                            className="bg-card/40 backdrop-blur-md border border-[var(--color-border-gold)] rounded-full px-5 py-2 cursor-pointer hover:bg-foreground/5 shadow-[0_0_20px_rgba(209,161,42,0.15)] transition-all flex items-center gap-3"
+                            onClick={() => setShowAllMotm(!showAllMotm)}
+                        >
+                            <div className="w-7 h-7 rounded-full overflow-hidden bg-foreground/10 shrink-0 border border-border-gold/30">
+                                <img src={`https://ui-avatars.com/api/?name=${motmLeaders[0].player_name.replace(' ', '+')}&background=random`} alt="" className="w-full h-full object-cover" />
+                            </div>
+                            <span className="text-sm font-semibold text-foreground/80">
+                                Community MOTM: <span className="text-foreground">{motmLeaders[0].player_name}</span>
                             </span>
-                        ) : 'vs'}
-                    </span>
-                    <span>{away_team.name}</span>
+                            <div className="text-[var(--color-border-gold)] flex gap-1.5 items-center text-sm font-bold pl-3 border-l border-foreground/20">
+                                {motmLeaders[0].count} votes
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                                {motmLeaders.length > 1 && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("transition-transform text-foreground/50 ml-1", showAllMotm ? "rotate-180" : "rotate-0")}><path d="m6 9 6 6 6-6" /></svg>
+                                )}
+                            </div>
+                        </div>
+
+                        {showAllMotm && motmLeaders.length > 1 && (
+                            <div className="absolute top-full mt-3 w-64 bg-card border border-border rounded-xl p-3 flex flex-col gap-2 shadow-xl animate-in fade-in slide-in-from-top-2">
+                                {motmLeaders.slice(1, 3).map((leader: any, idx: number) => (
+                                    <div key={idx} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-xs font-bold text-foreground/50">#{idx + 2}</div>
+                                            <div className="text-sm font-semibold text-foreground truncate">{leader.player_name}</div>
+                                        </div>
+                                        <div className="text-xs font-medium text-foreground/50">
+                                            {leader.count} v
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <h1 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold text-foreground flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 w-full max-w-4xl">
+                    <div className="flex flex-row md:flex-row-reverse items-center justify-end flex-1 gap-5">
+                        <span className="whitespace-nowrap tracking-tight">{home_team.short_name || home_team.name}</span>
+                        {home_team.crest_url && <img src={home_team.crest_url} alt={home_team.short_name} className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-2xl" />}
+                    </div>
+
+                    <div className="flex items-center justify-center tracking-widest px-2 drop-shadow-[0_0_15px_rgba(209,161,42,0.4)]">
+                        {isFinished ? (
+                            <span className="text-[var(--color-border-gold)] text-5xl sm:text-6xl md:text-7xl">
+                                {match.home_score} <span className="opacity-70 text-4xl sm:text-5xl">-</span> {match.away_score}
+                            </span>
+                        ) : (
+                            <span className="text-foreground/30 font-light text-3xl">vs</span>
+                        )}
+                    </div>
+
+                    <div className="flex flex-row items-center justify-start flex-1 gap-5">
+                        {away_team.crest_url && <img src={away_team.crest_url} alt={away_team.short_name} className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-2xl" />}
+                        <span className="whitespace-nowrap tracking-tight">{away_team.short_name || away_team.name}</span>
+                    </div>
                 </h1>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left Column (Review Form) */}
                 <div className="lg:col-span-5">
-                    <div className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-7 sticky top-24">
-                        <h2 className="text-xl font-bold text-accent mb-6 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-                            Write Your Review
+                    <div className="bg-card dark:bg-[var(--color-card-glow)] rounded-2xl shadow-lg border border-border dark:border-brand/30 p-6 sm:p-7 sticky top-24 dark:shadow-[0_0_30px_rgba(6,64,43,0.15)] relative overflow-hidden">
+                        {/* Subtle top inner glow for dark mode */}
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-brand/50 to-transparent opacity-0 dark:opacity-100"></div>
+
+                        <h2 className="text-xl font-bold text-foreground mb-6">
+                            {userReview && !isEditing ? "Your Review" : userReview && isEditing ? "Edit Your Review" : "Your Review"}
                         </h2>
 
-                        <div className="mb-7">
-                            <label className="block text-sm font-semibold text-foreground/80 mb-3">Focus Level</label>
-                            <FocusLevelSelector value={focus} onChange={setFocus} />
-                            <p className="text-xs text-foreground/50 mt-2.5">How intently did you watch this match?</p>
-                        </div>
+                        {userReview && !isEditing ? (
+                            <div className="flex flex-col h-full">
+                                <div className="mb-5">
+                                    <div className="text-xs text-foreground/50 mb-1.5 uppercase tracking-wider font-semibold">Focus Level</div>
+                                    <div className={cn("inline-flex px-3 py-1.5 rounded-full text-xs font-bold border",
+                                        userReview.focus_level === 'green' ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20" :
+                                            userReview.focus_level === 'yellow' ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20" :
+                                                "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                                    )}>
+                                        {userReview.focus_level === 'green' ? "High Focus" : userReview.focus_level === 'yellow' ? "Medium Focus" : "Low Focus"}
+                                    </div>
+                                </div>
+                                <div className="mb-6 flex-1">
+                                    <div className="text-xs text-foreground/50 mb-1.5 uppercase tracking-wider font-semibold">Notes</div>
+                                    <div className="text-sm text-foreground/90 whitespace-pre-wrap p-4 bg-foreground/5 dark:bg-black/30 rounded-xl border border-border dark:border-white/5 min-h-[120px] leading-relaxed">
+                                        {userReview.notes}
+                                    </div>
+                                </div>
+                                {userReview.motm_player_id && (
+                                    <div className="mb-8">
+                                        <div className="text-sm px-3.5 py-2 min-h-10 bg-foreground/5 dark:bg-black/40 text-foreground/90 inline-flex items-center justify-center gap-2 rounded-full border border-[var(--color-border-gold)] dark:shadow-[0_0_10px_rgba(209,161,42,0.1)]">
+                                            <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border border-border-gold/30">
+                                                <img src={`https://ui-avatars.com/api/?name=${allPlayers.find((p: any) => p.id === userReview.motm_player_id)?.name.replace(' ', '+')}&background=random`} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                            <span className="font-semibold text-xs tracking-wide">MOTM: {allPlayers.find((p: any) => p.id === userReview.motm_player_id)?.name}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex gap-3 mt-auto pt-4">
+                                    <Button className="flex-1 bg-[var(--color-button-neon)] hover:bg-[#00b348] text-black font-bold border-none shadow-[0_0_15px_rgba(0,202,81,0.3)] cursor-pointer rounded-xl h-11" onClick={() => {
+                                        setFocus(userReview.focus_level);
+                                        setNotes(userReview.notes);
+                                        setMotm(userReview.motm_player_id ? String(userReview.motm_player_id) : "");
+                                        setIsEditing(true);
+                                    }}>
+                                        Edit
+                                    </Button>
+                                    <Button variant="outline" className="flex-1 border-red-500/30 text-red-500 hover:bg-red-500/10 font-bold bg-transparent cursor-pointer rounded-xl h-11" onClick={onDelete} disabled={isSubmitting}>
+                                        {isSubmitting ? "Deleting..." : "Delete"}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="mb-6">
+                                    <label className="text-xs text-foreground/50 mb-2 uppercase tracking-wider font-semibold block">Focus Level</label>
+                                    <FocusLevelSelector value={focus} onChange={setFocus} />
+                                </div>
 
-                        <div className="mb-7">
-                            <label className="block text-sm font-semibold text-foreground/80 mb-3">Match Notes & Analysis</label>
-                            <textarea
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Tactical observations, key moments, player performances..."
-                                className="w-full min-h-[140px] p-4 border rounded-xl text-sm bg-foreground/5 focus:bg-card focus:ring-2 focus:ring-accent focus:outline-none transition-all border-border resize-y text-foreground"
-                            />
-                        </div>
+                                <div className="mb-6">
+                                    <label className="text-xs text-foreground/50 mb-2 uppercase tracking-wider font-semibold block">Match Notes & Analysis</label>
+                                    <textarea
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="Tactical observations, key moments, player performances..."
+                                        className="w-full min-h-[140px] p-4 border rounded-xl text-sm bg-foreground/5 dark:bg-black/30 focus:bg-card dark:focus:bg-black/50 focus:ring-1 focus:ring-brand focus:outline-none transition-all border-border dark:border-white/10 resize-y text-foreground"
+                                    />
+                                </div>
 
-                        <div className="mb-7">
-                            <label className="block text-sm font-semibold text-foreground/80 mb-3">Man of the Match <span className="text-foreground/40 font-normal ml-1">(Optional)</span></label>
-                            <select
-                                value={motm}
-                                onChange={(e) => setMotm(e.target.value)}
-                                className="w-full p-3.5 border rounded-xl text-sm bg-foreground/5 focus:bg-card focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none transition-all border-border text-foreground"
-                            >
-                                <option value="" className="bg-card">Search or select player...</option>
-                                <optgroup label={home_team.name} className="bg-card">
-                                    {home_squad_players?.map((p: any) => (
-                                        <option key={p.id} value={p.id} className="bg-card">{p.name}</option>
-                                    ))}
-                                </optgroup>
-                                <optgroup label={away_team.name} className="bg-card">
-                                    {away_squad_players?.map((p: any) => (
-                                        <option key={p.id} value={p.id} className="bg-card">{p.name}</option>
-                                    ))}
-                                </optgroup>
-                            </select>
-                        </div>
+                                <div className="mb-8">
+                                    <label className="text-xs text-foreground/50 mb-2 uppercase tracking-wider font-semibold block">
+                                        Man of the Match <span className="text-foreground/40 font-normal normal-case ml-1">({focus === 'red' ? 'Not available for low focus' : 'Optional'})</span>
+                                    </label>
+                                    <select
+                                        value={motm}
+                                        onChange={(e) => setMotm(e.target.value)}
+                                        disabled={focus === 'red'}
+                                        className={cn("w-full p-3.5 border rounded-xl text-sm transition-all border-border dark:border-white/10 text-foreground",
+                                            focus === 'red' ? "bg-card dark:bg-background opacity-50 cursor-not-allowed" : "bg-foreground/5 dark:bg-black/30 focus:bg-card focus:ring-1 focus:ring-brand focus:outline-none")}
+                                    >
+                                        <option value="" className="bg-card dark:bg-background">Search or select player...</option>
+                                        <optgroup label={home_team.name} className="bg-card dark:bg-background">
+                                            {home_squad_players?.map((p: any) => (
+                                                <option key={p.id} value={p.id} className="bg-card dark:bg-background">{p.name}</option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label={away_team.name} className="bg-card dark:bg-background">
+                                            {away_squad_players?.map((p: any) => (
+                                                <option key={p.id} value={p.id} className="bg-card dark:bg-background">{p.name}</option>
+                                            ))}
+                                        </optgroup>
+                                    </select>
+                                </div>
 
-                        <Button
-                            className="w-full h-12 text-[15px] font-semibold rounded-xl bg-brand text-white hover:bg-brand/90 shadow-md transition-all flex items-center gap-2"
-                            onClick={onSubmit}
-                            disabled={isSubmitting || !isSignedIn || !isFinished}
-                        >
-                            {isSubmitting ? "Posting..." : !isFinished ? "Match not finished" : !isSignedIn ? "Login to Post Review" : "Post Review"}
-                        </Button>
+                                <div className="flex gap-3">
+                                    {isEditing && (
+                                        <Button variant="outline" className="flex-1 border-border dark:border-white/20 text-foreground hover:bg-foreground/5 cursor-pointer rounded-xl h-11 font-bold" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
+                                            Cancel
+                                        </Button>
+                                    )}
+                                    <Button
+                                        className="flex-1 h-11 text-sm font-bold rounded-xl bg-[var(--color-button-neon)] text-black hover:bg-[#00b348] border-none shadow-[0_0_15px_rgba(0,202,81,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
+                                        onClick={onSubmit}
+                                        disabled={isSubmitting || !isSignedIn || !isFinished}
+                                    >
+                                        {isSubmitting ? (isEditing ? "Updating..." : "Posting...") : !isFinished ? "Match not finished" : !isSignedIn ? "Login to Post Review" : (isEditing ? "Save Changes" : "Post Review")}
+                                    </Button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
                 {/* Right Column (Community Reviews) */}
                 <div className="lg:col-span-7">
+
                     <div className="flex items-center justify-between mb-6 px-1">
                         <h2 className="text-xl font-bold text-foreground">Community Reviews</h2>
                         <div className="bg-card border border-border text-sm text-foreground/70 rounded-lg px-3 py-2 font-medium shadow-sm hover:bg-foreground/5 cursor-pointer transition-colors">
@@ -150,7 +321,7 @@ export function MatchClient({ matchData, initialReviews }: { matchData: any, ini
                     </div>
 
                     <div className="flex flex-col">
-                        {initialReviews.length === 0 ? (
+                        {allReviewsList.length === 0 ? (
                             <div className="flex flex-col items-center justify-center p-16 bg-card rounded-2xl border border-border shadow-sm">
                                 <div className="w-16 h-16 bg-foreground/5 rounded-full flex items-center justify-center mb-4">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/30"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
@@ -159,14 +330,15 @@ export function MatchClient({ matchData, initialReviews }: { matchData: any, ini
                                 <p className="text-foreground/50 text-center max-w-[250px]">Be the first to share your thoughts and tactical analysis on this match!</p>
                             </div>
                         ) : (
-                            initialReviews.map((r: any) => {
+                            allReviewsList.map((r: any) => {
                                 const motmPlayer = r.motm_player_id ? allPlayers.find((p: any) => p.id === r.motm_player_id) : null;
+                                const isCurrentUser = dbUser && r.user_id === dbUser.id;
                                 return (
                                     <ReviewCard
                                         key={r.id}
                                         review={{
                                             id: r.id,
-                                            username: `User ${r.user_id}`,
+                                            username: isCurrentUser ? "You" : `User ${r.user_id}`,
                                             focusLevel: r.focus_level,
                                             notes: r.notes,
                                             motm: motmPlayer ? motmPlayer.name : undefined,

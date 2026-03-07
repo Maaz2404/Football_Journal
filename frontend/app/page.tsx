@@ -37,6 +37,8 @@ export default async function HomePage({
       competition: m.competition_name || "Match",
       homeTeam: m.home_team_name || `Team ${m.home_team_id}`,
       awayTeam: m.away_team_name || `Team ${m.away_team_id}`,
+      homeTeamCrest: m.home_team_crest || `https://crests.football-data.org/${m.home_team_id}.svg`,
+      awayTeamCrest: m.away_team_crest || `https://crests.football-data.org/${m.away_team_id}.svg`,
       homeScore: m.home_score,
       awayScore: m.away_score,
       status: m.status,
