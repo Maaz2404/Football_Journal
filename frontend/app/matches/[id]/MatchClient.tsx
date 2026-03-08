@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
+import { MotmSelector } from "@/components/MotmSelector";
 
 export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { matchData: any, initialReviews: any[], motmLeaders?: any[] }) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
@@ -27,19 +28,21 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
     useEffect(() => {
         let isMounted = true;
         if (isSignedIn) {
-            getToken().then(token => {
-                // Use relative path or dynamic base if possible, but for client-side local dev 
-                // we'll try to be more robust. Prefer process.env.NEXT_PUBLIC_API_URL if exists.
-                const baseUrl = "http://127.0.0.1:8000";
-                fetch(`${baseUrl}/auth/me`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                })
-                    .then(r => { if (r.ok) return r.json(); return null; })
-                    .then(data => {
+            (async () => {
+                try {
+                    const token = await getToken({ template: 'fastapi' });
+                    const baseUrl = "http://127.0.0.1:8000";
+                    const r = await fetch(`${baseUrl}/auth/me`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    if (r.ok) {
+                        const data = await r.json();
                         if (isMounted) setDbUser(data);
-                    })
-                    .catch(() => { });
-            });
+                    }
+                } catch (e) {
+                    console.error("Auth sync error:", e);
+                }
+            })();
         }
         return () => { isMounted = false; };
     }, [isSignedIn, getToken]);
@@ -58,7 +61,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
         }
         try {
             setIsSubmitting(true);
-            const token = await getToken();
+            const token = await getToken({ template: 'fastapi' });
 
             const payload: any = {
                 match_id: match.id,
@@ -109,7 +112,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
         if (!userReview || !confirm("Are you sure you want to delete your review?")) return;
         try {
             setIsSubmitting(true);
-            const token = await getToken();
+            const token = await getToken({ template: 'fastapi' });
             const res = await fetch(`http://127.0.0.1:8000/reviews/${userReview.id}`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
@@ -270,25 +273,15 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                                     <label className="text-xs text-foreground/50 mb-2 uppercase tracking-wider font-semibold block">
                                         Man of the Match <span className="text-foreground/40 font-normal normal-case ml-1">({focus === 'red' ? 'Not available for low focus' : 'Optional'})</span>
                                     </label>
-                                    <select
+                                    <MotmSelector
+                                        homeTeam={home_team}
+                                        awayTeam={away_team}
+                                        homePlayers={home_squad_players || []}
+                                        awayPlayers={away_squad_players || []}
                                         value={motm}
-                                        onChange={(e) => setMotm(e.target.value)}
+                                        onChange={setMotm}
                                         disabled={focus === 'red'}
-                                        className={cn("w-full p-3.5 border rounded-xl text-sm transition-all border-border dark:border-white/10 text-foreground",
-                                            focus === 'red' ? "bg-card dark:bg-background opacity-50 cursor-not-allowed" : "bg-foreground/5 dark:bg-black/30 focus:bg-card focus:ring-1 focus:ring-brand focus:outline-none")}
-                                    >
-                                        <option value="" className="bg-card dark:bg-background">Search or select player...</option>
-                                        <optgroup label={home_team.name} className="bg-card dark:bg-background">
-                                            {home_squad_players?.map((p: any) => (
-                                                <option key={p.id} value={p.id} className="bg-card dark:bg-background">{p.name}</option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label={away_team.name} className="bg-card dark:bg-background">
-                                            {away_squad_players?.map((p: any) => (
-                                                <option key={p.id} value={p.id} className="bg-card dark:bg-background">{p.name}</option>
-                                            ))}
-                                        </optgroup>
-                                    </select>
+                                    />
                                 </div>
 
                                 <div className="flex gap-3">
@@ -338,7 +331,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                                         key={r.id}
                                         review={{
                                             id: r.id,
-                                            username: isCurrentUser ? "You" : `User ${r.user_id}`,
+                                            username: isCurrentUser ? "You" : (r.username || "Anonymous"),
                                             focusLevel: r.focus_level,
                                             notes: r.notes,
                                             motm: motmPlayer ? motmPlayer.name : undefined,

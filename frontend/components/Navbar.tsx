@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { UserButton, SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { UserButton, SignedIn, SignedOut, SignInButton, SignUpButton } from '@clerk/nextjs';
 
 export function Navbar() {
     return (
@@ -25,9 +25,18 @@ export function Navbar() {
 
                 <div className="flex items-center space-x-4">
                     <SignedIn>
-                        <UserButton afterSignOutUrl="/" />
+                        <UserButton
+                            afterSignOutUrl="/"
+                            userProfileUrl="/profile"
+                            userProfileMode="navigation"
+                        />
                     </SignedIn>
                     <SignedOut>
+                        <SignUpButton mode="modal">
+                            <button className="h-9 px-4 py-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 border border-white/30 text-white/80 hover:border-white/60 hover:text-white bg-transparent cursor-pointer">
+                                Sign Up
+                            </button>
+                        </SignUpButton>
                         <SignInButton mode="modal">
                             <button className="h-9 px-4 py-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 bg-accent text-white hover:bg-accent/90 shadow cursor-pointer">
                                 Log In

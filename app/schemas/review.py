@@ -18,6 +18,7 @@ class ReviewUpdate(BaseModel):
 class ReviewResponse(BaseModel):
     id: int
     user_id: int
+    username: Optional[str]
     match_id: int
     focus_level: FocusLevel
     notes: Optional[str]

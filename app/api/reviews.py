@@ -78,6 +78,7 @@ async def create_review(
     return ReviewResponse(
         id=review.id,
         user_id=review.user_id,
+        username=current_user.username,
         match_id=review.match_id,
         focus_level=review.focus_level,
         notes=review.notes,
@@ -142,6 +143,7 @@ async def update_review(
     return ReviewResponse(
         id=review.id,
         user_id=review.user_id,
+        username=current_user.username,
         match_id=review.match_id,
         focus_level=review.focus_level,
         notes=review.notes,
@@ -178,14 +180,17 @@ async def get_match_reviews(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    # 2️⃣ Fetch all reviews for match
+    # 2️⃣ Fetch all reviews for match, joining User for username
     result = await session.execute(
-        select(Review).where(Review.match_id == match_id)
+        select(Review, User).join(User, User.id == Review.user_id).where(Review.match_id == match_id)
     )
-    reviews = result.scalars().all()
+    rows = result.all()
 
-    if not reviews:
+    if not rows:
         return []
+
+    reviews = [row[0] for row in rows]
+    user_map = {row[0].id: row[1].username for row in rows}  # review_id -> username
 
     # 3️⃣ Fetch all MOTM tags for these reviews in one query
     review_ids = [review.id for review in reviews]
@@ -208,6 +213,7 @@ async def get_match_reviews(
             ReviewResponse(
                 id=review.id,
                 user_id=review.user_id,
+                username=user_map.get(review.id),
                 match_id=review.match_id,
                 focus_level=review.focus_level,
                 notes=review.notes,

@@ -120,8 +120,16 @@ async def get_current_user(
     )
     user = result.scalar_one_or_none()
 
+    clerk_username: str | None = claims.get("username")
+
     if not user:
-        user = User(auth_provider_id=clerk_user_id)
+        user = User(auth_provider_id=clerk_user_id, username=clerk_username)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    elif clerk_username and user.username != clerk_username:
+        # Keep local DB in sync with Clerk's username on every request
+        user.username = clerk_username
         session.add(user)
         await session.commit()
         await session.refresh(user)
