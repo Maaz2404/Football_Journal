@@ -24,7 +24,9 @@ app = FastAPI(
 
 origins = [
     "http://localhost:3000",          # Next.js local dev
-    "https://your-frontend.vercel.app",  # Production frontend
+    "https://futbook.vercel.app", 
+    "https://www.footbook.app",
+    "https://footbook.app",           # Production frontend
 ]
 
 app.add_middleware(
