@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from core.database import init_db
+import uvicorn
 
 settings = get_settings()
 
@@ -46,4 +47,11 @@ app.include_router(reviews.router)
 app.include_router(stats.router)
 
 
+import os
 
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000)),
+    )
