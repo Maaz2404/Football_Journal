@@ -31,7 +31,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
             (async () => {
                 try {
                     const token = await getToken({ template: 'fastapi' });
-                    const baseUrl = "http://127.0.0.1:8000";
+                    const baseUrl = process.env.API_URL 
                     const r = await fetch(`${baseUrl}/auth/me`, {
                         headers: { "Authorization": `Bearer ${token}` }
                     });
