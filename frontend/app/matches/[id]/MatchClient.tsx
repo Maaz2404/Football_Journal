@@ -9,7 +9,7 @@ import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { MotmSelector } from "@/components/MotmSelector";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "").replace(/\/$/, "");
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { matchData: any, initialReviews: any[], motmLeaders?: any[] }) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
@@ -29,6 +29,10 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
 
     useEffect(() => {
         let isMounted = true;
+        if (!API_URL) {
+            console.error("Missing NEXT_PUBLIC_API_URL. Client API requests are disabled.");
+            return () => { isMounted = false; };
+        }
         if (isSignedIn) {
             (async () => {
                 try {
@@ -59,6 +63,10 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
     const onSubmit = async () => {
         if (!isSignedIn) {
             alert("Please log in to submit a review.");
+            return;
+        }
+        if (!API_URL) {
+            alert("App configuration error: NEXT_PUBLIC_API_URL is not set.");
             return;
         }
         try {
@@ -92,8 +100,15 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
             });
 
             if (!res.ok) {
-                const errorData = await res.json();
-                alert(errorData.detail || "Failed to submit review");
+                let message = "Failed to submit review";
+                try {
+                    const errorData = await res.json();
+                    message = errorData.detail || message;
+                } catch {
+                    const text = await res.text();
+                    if (text) message = text;
+                }
+                alert(message);
             } else {
                 if (!isEditing) {
                     setNotes("");
@@ -112,6 +127,10 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
 
     const onDelete = async () => {
         if (!userReview || !confirm("Are you sure you want to delete your review?")) return;
+        if (!API_URL) {
+            alert("App configuration error: NEXT_PUBLIC_API_URL is not set.");
+            return;
+        }
         try {
             setIsSubmitting(true);
             const token = await getToken({ template: 'fastapi' });
@@ -120,8 +139,15 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                 headers: { "Authorization": `Bearer ${token}` }
             });
             if (!res.ok) {
-                const errorData = await res.json();
-                alert(errorData.detail || "Failed to delete review");
+                let message = "Failed to delete review";
+                try {
+                    const errorData = await res.json();
+                    message = errorData.detail || message;
+                } catch {
+                    const text = await res.text();
+                    if (text) message = text;
+                }
+                alert(message);
             } else {
                 router.refresh();
             }
