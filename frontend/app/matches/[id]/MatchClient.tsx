@@ -9,6 +9,8 @@ import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { MotmSelector } from "@/components/MotmSelector";
 
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "").replace(/\/$/, "");
+
 export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { matchData: any, initialReviews: any[], motmLeaders?: any[] }) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
     const [notes, setNotes] = useState("");
@@ -31,7 +33,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
             (async () => {
                 try {
                     const token = await getToken({ template: 'fastapi' });
-                    const baseUrl = process.env.API_URL 
+                    const baseUrl = API_URL;
                     const r = await fetch(`${baseUrl}/auth/me`, {
                         headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -77,7 +79,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                 payload.motm_player_id = null;
             }
 
-            const url = userReview && isEditing ? `http://127.0.0.1:8000/reviews/${userReview.id}` : `http://127.0.0.1:8000/reviews`;
+            const url = userReview && isEditing ? `${API_URL}/reviews/${userReview.id}` : `${API_URL}/reviews`;
             const method = userReview && isEditing ? "PUT" : "POST";
 
             const res = await fetch(url, {
@@ -113,7 +115,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
         try {
             setIsSubmitting(true);
             const token = await getToken({ template: 'fastapi' });
-            const res = await fetch(`http://127.0.0.1:8000/reviews/${userReview.id}`, {
+            const res = await fetch(`${API_URL}/reviews/${userReview.id}`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });

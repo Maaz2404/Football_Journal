@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 
-const API_URL = process.env.API_URL || 'http://127.0.0.1:8000';
+const API_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 
 export async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
     // Try to get token if auth is available
@@ -24,8 +24,8 @@ export async function fetchFromApi(endpoint: string, options: RequestInit = {}) 
         cache: options.cache || 'no-store'
     };
 
-    // Clean URL parsing to avoid double slashes, e.g. http://127.0.0.1:8000//matches
-    let baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+    // Clean URL parsing to avoid double slashes when composing absolute endpoint URLs.
+    let baseUrl = API_URL;
     let path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${path}`;
 
