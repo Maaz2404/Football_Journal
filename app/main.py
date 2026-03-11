@@ -1,11 +1,17 @@
 from fastapi import FastAPI
+from fastapi import Request
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from core.database import init_db
+from time import perf_counter
+import logging
+import os
 import uvicorn
 
 settings = get_settings()
+logger = logging.getLogger("uvicorn.error")
+SLOW_REQUEST_MS = int(os.environ.get("SLOW_REQUEST_MS", "800"))
 
 
 @asynccontextmanager
@@ -22,6 +28,43 @@ app = FastAPI(
     title=settings.APP_NAME,
     lifespan=lifespan
 )
+
+
+@app.middleware("http")
+async def request_timing_middleware(request: Request, call_next):
+    start = perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = (perf_counter() - start) * 1000
+        logger.exception(
+            "request_failed method=%s path=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            duration_ms,
+        )
+        raise
+
+    duration_ms = (perf_counter() - start) * 1000
+    response.headers["X-Process-Time-Ms"] = f"{duration_ms:.2f}"
+
+    log_msg = (
+        "request_complete method=%s path=%s status=%s duration_ms=%.2f origin=%s"
+    )
+    log_args = (
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        request.headers.get("origin", "-"),
+    )
+
+    if duration_ms >= SLOW_REQUEST_MS:
+        logger.warning(log_msg, *log_args)
+    else:
+        logger.info(log_msg, *log_args)
+
+    return response
 
 origins = [
     "http://localhost:3000",          # Next.js local dev
@@ -45,9 +88,6 @@ app.include_router(auth.router)
 app.include_router(matches.router)
 app.include_router(reviews.router)
 app.include_router(stats.router)
-
-
-import os
 
 if __name__ == "__main__":
     uvicorn.run(
