@@ -16,20 +16,13 @@ export default async function MatchPage({
 
     try {
         matchData = await fetchFromApi(`/matches/${id}`);
-        try {
-            reviewsData = await fetchFromApi(`/reviews/match/${id}`);
-        } catch (e) {
-            reviewsData = [];
-        }
-        try {
-            motmLeaders = await fetchFromApi(`/stats/match/${id}/motm-leader`);
-            // Ensure motmLeaders behaves robustly if empty or wrapped incorrectly
-            if (!Array.isArray(motmLeaders)) {
-                motmLeaders = [];
-            }
-        } catch (e) {
-            motmLeaders = [];
-        }
+        const [reviewsResult, motmResult] = await Promise.allSettled([
+            fetchFromApi(`/reviews/match/${id}`),
+            fetchFromApi(`/stats/match/${id}/motm-leader`),
+        ]);
+
+        reviewsData = reviewsResult.status === "fulfilled" ? reviewsResult.value : [];
+        motmLeaders = motmResult.status === "fulfilled" && Array.isArray(motmResult.value) ? motmResult.value : [];
     } catch (e) {
         console.error(e);
         notFound();

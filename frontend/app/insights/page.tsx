@@ -2,6 +2,7 @@ import { fetchFromApi } from "@/lib/api";
 import { InsightsFilter } from "@/components/InsightsFilter";
 import { Suspense } from "react";
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +36,15 @@ export default async function InsightsPage({
 
     try {
         const qs = buildQueryString(range, month, year);
+        const { getToken } = await auth();
+        const token = await getToken();
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;
         const [mRes, tRes, moRes, compRes, totRes] = await Promise.all([
-            fetchFromApi(`/stats/me/matches${qs}`).catch(() => []),
-            fetchFromApi(`/stats/me/teams${qs}`).catch(() => []),
-            fetchFromApi(`/stats/me/motm-player${qs}`).catch(() => null),
-            fetchFromApi(`/stats/me/most-watched-competition${qs}`).catch(() => null),
-            fetchFromApi(`/stats/me/total-matches${qs}`).catch(() => ({ total: 0 })),
+            fetchFromApi(`/stats/me/matches${qs}`, { headers: authHeaders }).catch(() => []),
+            fetchFromApi(`/stats/me/teams${qs}`, { headers: authHeaders }).catch(() => []),
+            fetchFromApi(`/stats/me/motm-player${qs}`, { headers: authHeaders }).catch(() => null),
+            fetchFromApi(`/stats/me/most-watched-competition${qs}`, { headers: authHeaders }).catch(() => null),
+            fetchFromApi(`/stats/me/total-matches${qs}`, { headers: authHeaders }).catch(() => ({ total: 0 })),
         ]);
 
         matches = Array.isArray(mRes) ? mRes : [];

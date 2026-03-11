@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useTransition } from "react";
 
 const MONTHS = [
     { value: "1", label: "January" },
@@ -30,6 +30,7 @@ interface InsightsFilterProps {
 export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
 
     const navigate = useCallback(
         (updates: Record<string, string | null>) => {
@@ -41,7 +42,9 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                     params.set(key, value);
                 }
             }
-            router.push(`/insights?${params.toString()}`);
+            startTransition(() => {
+                router.replace(`/insights?${params.toString()}`);
+            });
         },
         [router, searchParams]
     );
@@ -55,6 +58,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                 {/* Weekly toggle */}
                 <button
                     onClick={() => navigate({ range: "weekly", month: null, year: null })}
+                    disabled={isPending}
                     className={`px-8 py-2 text-sm font-bold rounded-full transition-all duration-300 ${isWeekly
                         ? "bg-brand text-button-neon shadow-[0_0_15px_rgba(0,202,81,0.2)] border border-button-neon/30"
                         : "text-foreground/40 hover:text-foreground/70"
@@ -64,6 +68,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                 </button>
                 <button
                     onClick={() => navigate({ range: "custom", month: null, year: String(currentYear) })}
+                    disabled={isPending}
                     className={`px-8 py-2 text-sm font-bold rounded-full transition-all duration-300 ${isCustom
                         ? "bg-brand text-button-neon shadow-[0_0_15px_rgba(0,202,81,0.2)] border border-button-neon/30"
                         : "text-foreground/40 hover:text-foreground/70"
@@ -83,6 +88,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                             onChange={(e) =>
                                 navigate({ month: e.target.value || null })
                             }
+                            disabled={isPending}
                             className="text-sm font-semibold text-foreground bg-transparent outline-none cursor-pointer hover:text-button-neon transition-colors"
                         >
                             <option value="" className="bg-background text-foreground">All months</option>
@@ -102,6 +108,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                             onChange={(e) =>
                                 navigate({ year: e.target.value })
                             }
+                            disabled={isPending}
                             className="text-sm font-semibold text-foreground bg-transparent outline-none cursor-pointer hover:text-button-neon transition-colors"
                         >
                             {YEARS.map((y) => (
@@ -115,6 +122,9 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                     </div>
                 )}
             </div>
+            {isPending && (
+                <div className="text-xs text-foreground/50 font-semibold animate-pulse">Updating insights...</div>
+            )}
         </div>
     );
 }

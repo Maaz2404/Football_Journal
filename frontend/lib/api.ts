@@ -3,18 +3,19 @@ import { auth } from '@clerk/nextjs/server';
 const API_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 
 export async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
-    // Try to get token if auth is available
-    let token = null;
-    try {
-        const { getToken } = await auth();
-        token = await getToken();
-    } catch (e) {
-        // Auth might not be required or available
-    }
-
     const headers = new Headers(options.headers);
-    if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
+    if (!headers.has('Authorization')) {
+        // Try to get token only when no Authorization header was provided.
+        let token = null;
+        try {
+            const { getToken } = await auth();
+            token = await getToken();
+        } catch (e) {
+            // Auth might not be required or available
+        }
+        if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+        }
     }
 
     // Prevent caching for dynamic data by default if not specified
