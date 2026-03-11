@@ -88,7 +88,6 @@ async def get_match_detail(
 ):
     # if get_db provides an async session, await the call
     match = await session.get(Match, match_id)
-    print(match)
 
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -98,12 +97,12 @@ async def get_match_detail(
 
     match_date = match.utc_date
 
-    # Home squad
-    home_statement = (
-        select(Player)
+    # Fetch both squads in one query and split in memory.
+    squad_statement = (
+        select(Player, TeamSquad.team_id)
         .join(TeamSquad, TeamSquad.player_id == Player.id)
         .where(
-            TeamSquad.team_id == match.home_team_id,
+            TeamSquad.team_id.in_([match.home_team_id, match.away_team_id]),
             TeamSquad.valid_from <= match_date,
             or_(
                 TeamSquad.valid_to == None,
@@ -112,23 +111,9 @@ async def get_match_detail(
         )
     )
 
-    home_players =  (await session.execute(home_statement)).scalars().all()
-
-    # Away squad
-    away_statement = (
-        select(Player)
-        .join(TeamSquad, TeamSquad.player_id == Player.id)
-        .where(
-            TeamSquad.team_id == match.away_team_id,
-            TeamSquad.valid_from <= match_date,
-            or_(
-                TeamSquad.valid_to == None,
-                TeamSquad.valid_to >= match_date
-            )
-        )
-    )
-
-    away_players = (await session.execute(away_statement)).scalars().all()
+    squad_rows = (await session.execute(squad_statement)).all()
+    home_players = [player for player, team_id in squad_rows if team_id == match.home_team_id]
+    away_players = [player for player, team_id in squad_rows if team_id == match.away_team_id]
 
     return {
         "match": match,

@@ -241,20 +241,28 @@ async def get_match_motm_leader(
     limit: int = 3,
     session: Session = Depends(get_db),
 ):
-    stmt = (
+    counts_subquery = (
         select(
             ReviewPlayerTag.player_id,
-            Player.name.label("player_name"),
             func.count().label("count")
         )
         .join(Review, Review.id == ReviewPlayerTag.review_id)
-        .join(Player, Player.id == ReviewPlayerTag.player_id)
         .where(
             Review.match_id == match_id,
             ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
         )
-        .group_by(ReviewPlayerTag.player_id, Player.name)
-        .order_by(func.count().desc())
+        .group_by(ReviewPlayerTag.player_id)
+        .subquery()
+    )
+
+    stmt = (
+        select(
+            counts_subquery.c.player_id,
+            Player.name.label("player_name"),
+            counts_subquery.c.count,
+        )
+        .join(Player, Player.id == counts_subquery.c.player_id)
+        .order_by(counts_subquery.c.count.desc())
         .limit(limit)
     )
 

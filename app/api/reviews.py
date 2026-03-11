@@ -1,6 +1,6 @@
 from datetime import datetime, time
 from fastapi import APIRouter,HTTPException, Depends,status
-from sqlalchemy import delete,select
+from sqlalchemy import delete,select, and_
 from sqlmodel import Session
 from core.database import get_db
 from utils.validation import validate_motm_player
@@ -180,49 +180,44 @@ async def get_match_reviews(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    # 2️⃣ Fetch all reviews for match, joining User for username
+    # 2️⃣ Fetch reviews, usernames, and MOTM tags in one query.
     result = await session.execute(
-        select(Review, User).join(User, User.id == Review.user_id).where(Review.match_id == match_id)
+        select(
+            Review.id,
+            Review.user_id,
+            Review.match_id,
+            Review.focus_level,
+            Review.notes,
+            Review.created_at,
+            User.username,
+            ReviewPlayerTag.player_id.label("motm_player_id"),
+        )
+        .join(User, User.id == Review.user_id)
+        .outerjoin(
+            ReviewPlayerTag,
+            and_(
+                ReviewPlayerTag.review_id == Review.id,
+                ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
+            ),
+        )
+        .where(Review.match_id == match_id)
+        .order_by(Review.created_at.desc())
     )
     rows = result.all()
 
-    if not rows:
-        return []
-
-    reviews = [row[0] for row in rows]
-    user_map = {row[0].id: row[1].username for row in rows}  # review_id -> username
-
-    # 3️⃣ Fetch all MOTM tags for these reviews in one query
-    review_ids = [review.id for review in reviews]
-
-    tag_result = await session.execute(
-        select(ReviewPlayerTag).where(
-            ReviewPlayerTag.review_id.in_(review_ids),
-            ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
+    return [
+        ReviewResponse(
+            id=row.id,
+            user_id=row.user_id,
+            username=row.username,
+            match_id=row.match_id,
+            focus_level=row.focus_level,
+            notes=row.notes,
+            created_at=row.created_at,
+            motm_player_id=row.motm_player_id,
         )
-    )
-    tags = tag_result.scalars().all()
-
-    # Map review_id -> motm_player_id
-    motm_map = {tag.review_id: tag.player_id for tag in tags}
-
-    # 4️⃣ Build response
-    response = []
-    for review in reviews:
-        response.append(
-            ReviewResponse(
-                id=review.id,
-                user_id=review.user_id,
-                username=user_map.get(review.id),
-                match_id=review.match_id,
-                focus_level=review.focus_level,
-                notes=review.notes,
-                created_at=review.created_at,
-                motm_player_id=motm_map.get(review.id),
-            )
-        )
-
-    return response
+        for row in rows
+    ]
 
 @router.post("/{review_id}/like", status_code=status.HTTP_204_NO_CONTENT)
 async def toggle_review_like(
