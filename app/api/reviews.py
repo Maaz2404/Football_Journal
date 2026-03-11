@@ -63,7 +63,7 @@ async def create_review(
 
     # 4️⃣ Handle MOTM
     if payload.motm_player_id:
-        validate_motm_player(session, payload.motm_player_id, match)
+        await validate_motm_player(session, payload.motm_player_id, match)
 
         tag = ReviewPlayerTag(
             review_id=review.id,
