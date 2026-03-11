@@ -4,6 +4,7 @@ from jwt import PyJWKClient, PyJWKClientError, InvalidTokenError
 from functools import lru_cache
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.exc import IntegrityError
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 
@@ -143,7 +144,15 @@ async def get_current_user(
         # Keep local DB in sync with Clerk's username on every request
         user.username = clerk_username
         session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        try:
+            await session.commit()
+            await session.refresh(user)
+        except IntegrityError:
+            # Another user may already have this username; keep existing local value.
+            await session.rollback()
+            refreshed = await session.execute(
+                select(User).where(User.id == user.id)
+            )
+            user = refreshed.scalar_one()
 
     return user
