@@ -41,19 +41,31 @@ def _verify_clerk_token(token: str) -> dict:
     Raises HTTPException 401 on any verification failure so callers never
     need to catch low-level jwt errors themselves.
     """
+    if not settings.JWKS_URL:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server auth configuration error: JWKS_URL is missing.",
+        )
+
+    if not settings.CLERK_FRONTEND_URL:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server auth configuration error: CLERK_FRONTEND_URL is missing.",
+        )
+
     try:
         client = _get_jwks_client()
         # Fetch the matching public key from the JWKS (uses kid header claim)
         signing_key = client.get_signing_key_from_jwt(token)
     except PyJWKClientError as exc:
-        print(f"JWKS_URL={settings.JWKS_URL}")
-        try:
-            print(f"Available keys: {client.get_jwk_set().keys}")
-        except:
-            pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Could not fetch Clerk signing key: {exc}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Failed to validate token signing key: {exc}",
         )
 
     try:
