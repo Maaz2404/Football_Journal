@@ -1,6 +1,7 @@
 from datetime import datetime, time
 from fastapi import APIRouter,HTTPException, Depends,status
 from sqlalchemy import delete,select, and_
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 from core.database import get_db
 from utils.validation import validate_motm_player
@@ -47,33 +48,34 @@ async def create_review(
         created_at=datetime.utcnow(),
     )
 
-    session.add(review)
+    # 4️⃣ Handle MOTM validation before insert
+    if payload.motm_player_id:
+        await validate_motm_player(session, payload.motm_player_id, match)
 
+    # 5️⃣ Persist review (and optional MOTM tag) in a single transaction
+    session.add(review)
     try:
+        await session.flush()
+
+        if payload.motm_player_id:
+            session.add(
+                ReviewPlayerTag(
+                    review_id=review.id,
+                    player_id=payload.motm_player_id,
+                    tag_type=ReviewPlayerTagType.MOTM,
+                )
+            )
+
         await session.commit()
         await session.refresh(review)
-    except Exception:
-        session.rollback()
+    except IntegrityError:
+        await session.rollback()
         raise HTTPException(
             status_code=400,
             detail="You have already reviewed this match"
         )
 
-    motm_player_id = None
-
-    # 4️⃣ Handle MOTM
-    if payload.motm_player_id:
-        await validate_motm_player(session, payload.motm_player_id, match)
-
-        tag = ReviewPlayerTag(
-            review_id=review.id,
-            player_id=payload.motm_player_id,
-            tag_type=ReviewPlayerTagType.MOTM,
-        )
-        session.add(tag)
-        await session.commit()
-
-        motm_player_id = payload.motm_player_id
+    motm_player_id = payload.motm_player_id
 
     return ReviewResponse(
         id=review.id,
@@ -101,8 +103,6 @@ async def update_review(
     if review.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    match = await session.get(Match, review.match_id)
-
     # Update fields
     if payload.focus_level is not None:
         review.focus_level = payload.focus_level
@@ -110,13 +110,12 @@ async def update_review(
     if payload.notes is not None:
         review.notes = payload.notes
 
-    session.add(review)
-    await session.commit()
-
-    motm_player_id = None
+    motm_player_id = payload.motm_player_id
 
     # Handle MOTM update (including removal)
     if payload.motm_player_id is not None:
+        match = await session.get(Match, review.match_id)
+
         # Remove existing MOTM
         await session.execute(
             delete(ReviewPlayerTag).where(
@@ -124,11 +123,10 @@ async def update_review(
                 ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
             )
         )
-        await session.commit()
 
         # If new one provided
         if payload.motm_player_id:
-            validate_motm_player(session, payload.motm_player_id, match)
+            await validate_motm_player(session, payload.motm_player_id, match)
 
             tag = ReviewPlayerTag(
                 review_id=review.id,
@@ -136,9 +134,19 @@ async def update_review(
                 tag_type=ReviewPlayerTagType.MOTM,
             )
             session.add(tag)
-            await session.commit()
 
-            motm_player_id = payload.motm_player_id
+    session.add(review)
+    await session.commit()
+
+    # If MOTM was not part of update payload, keep existing MOTM in response.
+    if payload.motm_player_id is None:
+        existing_motm = await session.execute(
+            select(ReviewPlayerTag.player_id).where(
+                ReviewPlayerTag.review_id == review.id,
+                ReviewPlayerTag.tag_type == ReviewPlayerTagType.MOTM,
+            )
+        )
+        motm_player_id = existing_motm.scalar_one_or_none()
 
     return ReviewResponse(
         id=review.id,
@@ -157,15 +165,20 @@ async def delete_review(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    review = await session.get(Review, review_id)
+    owner_id_result = await session.execute(
+        select(Review.user_id).where(Review.id == review_id)
+    )
+    owner_id = owner_id_result.scalar_one_or_none()
 
-    if not review:
+    if owner_id is None:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    if review.user_id != current_user.id:
+    if owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    await session.delete(review)
+    await session.execute(
+        delete(Review).where(Review.id == review_id)
+    )
     await session.commit()
 
     return {"message": "Review deleted successfully"}
