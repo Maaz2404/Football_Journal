@@ -6,12 +6,22 @@ import { ReviewCard } from "@/components/ReviewCard";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { cn } from "@/lib/utils";
+import { cn, formatMatchDateTimeWithTimezone } from "@/lib/utils";
 import { MotmSelector } from "@/components/MotmSelector";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
-export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { matchData: any, initialReviews: any[], motmLeaders?: any[] }) {
+export function MatchClient({
+    matchData,
+    initialReviews,
+    motmLeaders = [],
+    viewerTimezone,
+}: {
+    matchData: any,
+    initialReviews: any[],
+    motmLeaders?: any[],
+    viewerTimezone?: string,
+}) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
     const [notes, setNotes] = useState("");
     const [motm, setMotm] = useState("");
@@ -22,6 +32,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
 
     const { match, home_team, away_team, home_squad_players, away_squad_players } = matchData;
     const isFinished = match.status === "FINISHED";
+    const kickoffDateTime = formatMatchDateTimeWithTimezone(match.utc_date, viewerTimezone);
     const { getToken, isSignedIn } = useAuth();
     const router = useRouter();
 
@@ -225,6 +236,10 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                         <span className="whitespace-nowrap tracking-tight">{away_team.short_name || away_team.name}</span>
                     </div>
                 </h1>
+
+                <p className="mt-4 text-sm font-semibold text-foreground/60 uppercase tracking-wide">
+                    Kickoff: {kickoffDateTime.date} • {kickoffDateTime.time}
+                </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -354,6 +369,8 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                             allReviewsList.map((r: any) => {
                                 const motmPlayer = r.motm_player_id ? allPlayers.find((p: any) => p.id === r.motm_player_id) : null;
                                 const isCurrentUser = dbUser && r.user_id === dbUser.id;
+                                const reviewDate = formatMatchDateTimeWithTimezone(r.created_at, viewerTimezone);
+
                                 return (
                                     <ReviewCard
                                         key={r.id}
@@ -364,7 +381,7 @@ export function MatchClient({ matchData, initialReviews, motmLeaders = [] }: { m
                                             notes: r.notes,
                                             motm: motmPlayer ? motmPlayer.name : undefined,
                                             likes: 0,
-                                            timeAgo: new Date(r.created_at).toLocaleDateString()
+                                            timeAgo: reviewDate.date
                                         }}
                                     />
                                 )

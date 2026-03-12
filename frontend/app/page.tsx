@@ -2,6 +2,7 @@ import { DateSelector } from "@/components/DateSelector";
 import { MatchCard, MatchProps } from "@/components/MatchCard";
 import { fetchFromApi } from "@/lib/api";
 import { format, addDays, subDays } from "date-fns";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  const requestHeaders = await headers();
+  const timezoneFromHeader = requestHeaders.get("x-vercel-ip-timezone") || undefined;
+
   const params = await searchParams;
   const dateParam = params.date as string | undefined;
 
@@ -90,7 +94,7 @@ export default async function HomePage({
                 </summary>
                 <div className="flex flex-col ml-6 border-l-2 border-border pl-4">
                   {compMatches.map((m) => (
-                    <MatchCard key={m.id} match={m} />
+                    <MatchCard key={m.id} match={m} viewerTimezone={timezoneFromHeader} />
                   ))}
                 </div>
               </details>

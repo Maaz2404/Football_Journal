@@ -3,6 +3,8 @@ import { InsightsFilter } from "@/components/InsightsFilter";
 import { Suspense } from "react";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
+import { formatMatchDateTimeWithTimezone } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +24,11 @@ export default async function InsightsPage({
 }: {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+    const requestHeaders = await headers();
+    const timezoneFromHeader = requestHeaders.get("x-vercel-ip-timezone") || undefined;
+
     const params = await searchParams;
-    const range = (params.range as string) || "custom";
+    const range = (params.range as string) || "weekly";
     const month = (params.month as string) || null;
     const year = (params.year as string) || String(new Date().getFullYear());
 
@@ -173,7 +178,10 @@ export default async function InsightsPage({
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {matches.map((m: any) => (
+                                {matches.map((m: any) => {
+                                    const dateTime = formatMatchDateTimeWithTimezone(m.utc_date, timezoneFromHeader);
+
+                                    return (
                                     <Link key={m.id} href={`/matches/${m.id}`} className="bg-[var(--color-card-glow)] border border-white/5 rounded-2xl overflow-hidden hover:border-button-neon/30 transition-all group block shadow-md hover:shadow-button-neon/5">
                                         <div className="p-5 flex items-center justify-between">
                                             <div className="flex-1 space-y-3">
@@ -215,7 +223,7 @@ export default async function InsightsPage({
                                                     FT
                                                 </div>
                                                 <div className="text-[10px] font-bold text-foreground/40 text-center uppercase tracking-tighter">
-                                                    {new Date(m.utc_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} • {new Date(m.utc_date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                    {dateTime.date} • {dateTime.time}
                                                 </div>
                                             </div>
 
@@ -224,7 +232,8 @@ export default async function InsightsPage({
                                             </div>
                                         </div>
                                     </Link>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

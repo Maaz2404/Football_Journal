@@ -64,7 +64,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                         : "text-foreground/40 hover:text-foreground/70"
                         }`}
                 >
-                    Weekly
+                    Last 7 days
                 </button>
                 <button
                     onClick={() => navigate({ range: "custom", month: null, year: String(currentYear) })}

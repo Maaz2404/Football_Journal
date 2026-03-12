@@ -15,13 +15,13 @@ export interface MatchProps {
     awayTeamCrest?: string;
 }
 
-export function MatchCard({ match }: { match: MatchProps }) {
+export function MatchCard({ match, viewerTimezone }: { match: MatchProps; viewerTimezone?: string }) {
     const isFinished = match.status === "FINISHED";
-    const dateTime = formatMatchDateTimeWithTimezone(match.utcDate);
+    const dateTime = formatMatchDateTimeWithTimezone(match.utcDate, viewerTimezone);
 
     const content = (
-        <Card className={cn("transition-all bg-card border-border",
-            isFinished ? "hover:border-accent hover:shadow-md cursor-pointer" : "opacity-80 grayscale-[0.2]")}>
+        <Card className={cn("transition-all bg-card/60 dark:bg-emerald-950/20 backdrop-blur-sm border-border/50",
+            isFinished ? "hover:border-accent/40 hover:shadow-md cursor-pointer" : "opacity-90")}>
             <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                 <div className="flex flex-col gap-1 w-full max-w-[220px] sm:max-w-sm">
                     <span className="text-xs text-foreground/50 font-semibold uppercase tracking-wider mb-1">{match.competition}</span>
@@ -64,10 +64,7 @@ export function MatchCard({ match }: { match: MatchProps }) {
                     )}
                     <span className="text-xs text-foreground/50 whitespace-nowrap text-right flex flex-col items-end">
                         <span>{dateTime.date}</span>
-                        <span className="flex items-center gap-1">
-                            <span>{dateTime.time}</span>
-                            <span className="text-[10px] opacity-70">{dateTime.timezone}</span>
-                        </span>
+                        <span>{dateTime.time}</span>
                     </span>
                     {isFinished && (
                         <div className="mt-1 text-accent p-1 rounded-full transition-colors hidden sm:block">

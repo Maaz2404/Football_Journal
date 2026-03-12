@@ -1,5 +1,6 @@
 import { fetchFromApi } from "@/lib/api";
 import { MatchClient } from "./MatchClient";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,9 @@ export default async function MatchPage({
 }: {
     params: Promise<{ id: string }>
 }) {
+    const requestHeaders = await headers();
+    const timezoneFromHeader = requestHeaders.get("x-vercel-ip-timezone") || undefined;
+
     const { id } = await params;
     let matchData = null;
     let reviewsData = [];
@@ -34,7 +38,12 @@ export default async function MatchPage({
 
     return (
         <div className="w-full animate-in fade-in duration-500">
-            <MatchClient matchData={matchData} initialReviews={reviewsData} motmLeaders={motmLeaders} />
+            <MatchClient
+                matchData={matchData}
+                initialReviews={reviewsData}
+                motmLeaders={motmLeaders}
+                viewerTimezone={timezoneFromHeader}
+            />
         </div>
     );
 }
