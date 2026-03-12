@@ -24,8 +24,8 @@ async def validate_motm_player(
         )
     )
 
-    squad_entry = await session.execute(statement).first()
-
+    result = await session.execute(statement)
+    squad_entry = result.first()
     if not squad_entry:
         raise HTTPException(
             status_code=400,
