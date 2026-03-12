@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent } from "./ui/card";
-import { cn } from "@/lib/utils";
+import { cn, formatMatchDateTimeWithTimezone } from "@/lib/utils";
 
 export interface MatchProps {
     id: string | number;
@@ -17,6 +17,7 @@ export interface MatchProps {
 
 export function MatchCard({ match }: { match: MatchProps }) {
     const isFinished = match.status === "FINISHED";
+    const dateTime = formatMatchDateTimeWithTimezone(match.utcDate);
 
     const content = (
         <Card className={cn("transition-all bg-card border-border",
@@ -62,8 +63,11 @@ export function MatchCard({ match }: { match: MatchProps }) {
                         </span>
                     )}
                     <span className="text-xs text-foreground/50 whitespace-nowrap text-right flex flex-col items-end">
-                        <span>{new Date(match.utcDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                        <span>{new Date(match.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{dateTime.date}</span>
+                        <span className="flex items-center gap-1">
+                            <span>{dateTime.time}</span>
+                            <span className="text-[10px] opacity-70">{dateTime.timezone}</span>
+                        </span>
                     </span>
                     {isFinished && (
                         <div className="mt-1 text-accent p-1 rounded-full transition-colors hidden sm:block">

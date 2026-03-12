@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 
 class MatchBase(BaseModel):
@@ -18,6 +18,15 @@ class MatchBase(BaseModel):
 
     home_score: Optional[int]
     away_score: Optional[int]
+    
+    @field_serializer('utc_date')
+    def serialize_utc_date(self, dt: datetime, _info):
+        """Ensure datetime is serialized as UTC with explicit timezone marker"""
+        if dt.tzinfo is None:
+            # If timezone info is missing, assume UTC
+            from datetime import timezone
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
 
 
 class MatchListResponse(BaseModel):
