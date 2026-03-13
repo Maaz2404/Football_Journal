@@ -1,11 +1,26 @@
 import { DateSelector } from "@/components/DateSelector";
 import { MatchCard, MatchProps } from "@/components/MatchCard";
 import { fetchFromApi } from "@/lib/api";
-import { format, addDays, subDays } from "date-fns";
+import { addDaysToDateKey, getDateKeyForDate, getDateKeyForUtcDate, isValidDateKey } from "@/lib/utils";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+type ApiMatch = {
+  id: number;
+  competition_name?: string;
+  home_team_id: number;
+  home_team_name?: string;
+  home_team_crest?: string;
+  away_team_id: number;
+  away_team_name?: string;
+  away_team_crest?: string;
+  home_score: number | null;
+  away_score: number | null;
+  status: string;
+  utc_date: string;
+};
 
 export default async function HomePage({
   searchParams,
@@ -18,25 +33,26 @@ export default async function HomePage({
   const params = await searchParams;
   const dateParam = params.date as string | undefined;
 
-  const currentDate = dateParam ? new Date(dateParam) : new Date();
+  const currentDateKey = dateParam || getDateKeyForDate(new Date(), timezoneFromHeader);
 
-  if (isNaN(currentDate.getTime())) {
+  if (!isValidDateKey(currentDateKey)) {
     redirect("/");
   }
 
-  const dateStr = format(currentDate, "yyyy-MM-dd");
-  const prevDate = format(subDays(currentDate, 1), "yyyy-MM-dd");
-  const nextDate = format(addDays(currentDate, 1), "yyyy-MM-dd");
+  const dateFrom = addDaysToDateKey(currentDateKey, -1);
+  const dateTo = addDaysToDateKey(currentDateKey, 1);
+  const prevDate = addDaysToDateKey(currentDateKey, -1);
+  const nextDate = addDaysToDateKey(currentDateKey, 1);
 
   let matches: MatchProps[] = [];
   let error = null;
 
   try {
-    const data = await fetchFromApi(`/matches?date_from=${dateStr}&date_to=${dateStr}`);
+    const data = await fetchFromApi(`/matches?date_from=${dateFrom}&date_to=${dateTo}`);
 
     // Map backend data to frontend props. 
     // Uses fallback formatting until backend returns team and competition names.
-    matches = (data.matches || []).map((m: any) => ({
+    matches = (data.matches || []).map((m: ApiMatch) => ({
       id: m.id,
       competition: m.competition_name || "Match",
       homeTeam: m.home_team_name || `Team ${m.home_team_id}`,
@@ -47,7 +63,7 @@ export default async function HomePage({
       awayScore: m.away_score,
       status: m.status,
       utcDate: m.utc_date
-    }));
+    })).filter((m: MatchProps) => getDateKeyForUtcDate(m.utcDate, timezoneFromHeader) === currentDateKey);
 
   } catch (e) {
     error = "Failed to load matches. Check if the backend is running.";
@@ -57,9 +73,10 @@ export default async function HomePage({
   return (
     <div className="flex flex-col gap-6 w-full animate-in fade-in duration-500">
       <DateSelector
-        currentDate={currentDate}
+        currentDateKey={currentDateKey}
         prevLink={`/?date=${prevDate}`}
         nextLink={`/?date=${nextDate}`}
+        viewerTimezone={timezoneFromHeader}
       />
 
       <div className="max-w-xl mx-auto w-full">

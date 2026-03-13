@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func, union_all
 from sqlalchemy.orm import aliased
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from calendar import monthrange
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlmodel import Session
 from models.match import Match
 from models.team import Team
@@ -16,41 +17,50 @@ from core.auth import get_current_user
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
-def build_date_range(range_type: str, month: int = None, year: int = None):
-    now = datetime.utcnow()
+def _resolve_viewer_timezone(viewer_tz: str | None):
+    if not viewer_tz:
+        return timezone.utc
+    try:
+        return ZoneInfo(viewer_tz)
+    except ZoneInfoNotFoundError:
+        return timezone.utc
+
+
+def build_date_range(range_type: str, month: int = None, year: int = None, viewer_tz: str | None = None):
+    tzinfo = _resolve_viewer_timezone(viewer_tz)
+    now_local = datetime.now(timezone.utc).astimezone(tzinfo)
 
     if range_type == "weekly":
-        start = now - timedelta(days=7)
-        end = now
-        return start, end
+        start_local = now_local - timedelta(days=7)
+        return start_local.astimezone(timezone.utc), now_local.astimezone(timezone.utc)
 
     if range_type == "monthly":
         if not month or not year:
             raise ValueError("Month and year required for monthly range")
-        start = datetime(year, month, 1)
+        start_local = datetime(year, month, 1, 0, 0, 0, tzinfo=tzinfo)
         last_day = monthrange(year, month)[1]
-        end = datetime(year, month, last_day, 23, 59, 59)
-        return start, end
+        end_local = datetime(year, month, last_day, 23, 59, 59, tzinfo=tzinfo)
+        return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
     if range_type == "yearly":
         if not year:
             raise ValueError("Year required for yearly range")
-        start = datetime(year, 1, 1)
-        end = datetime(year, 12, 31, 23, 59, 59)
-        return start, end
+        start_local = datetime(year, 1, 1, 0, 0, 0, tzinfo=tzinfo)
+        end_local = datetime(year, 12, 31, 23, 59, 59, tzinfo=tzinfo)
+        return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
     if range_type == "custom":
         if month and year:
             # custom with month+year → monthly window
-            start = datetime(year, month, 1)
+            start_local = datetime(year, month, 1, 0, 0, 0, tzinfo=tzinfo)
             last_day = monthrange(year, month)[1]
-            end = datetime(year, month, last_day, 23, 59, 59)
-            return start, end
+            end_local = datetime(year, month, last_day, 23, 59, 59, tzinfo=tzinfo)
+            return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
         if year:
             # custom with year only → full year
-            start = datetime(year, 1, 1)
-            end = datetime(year, 12, 31, 23, 59, 59)
-            return start, end
+            start_local = datetime(year, 1, 1, 0, 0, 0, tzinfo=tzinfo)
+            end_local = datetime(year, 12, 31, 23, 59, 59, tzinfo=tzinfo)
+            return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
     return None, None
 
@@ -60,6 +70,7 @@ async def get_my_matches(
     range: str = None,
     month: int = None,
     year: int = None,
+    viewer_tz: str | None = None,
     limit: int = 20,
     offset: int = 0,
     session: Session = Depends(get_db),
@@ -88,7 +99,7 @@ async def get_my_matches(
     )
 
     if range:
-        start, end = build_date_range(range, month, year)
+        start, end = build_date_range(range, month, year, viewer_tz)
         stmt = stmt.where(Match.utc_date >= start, Match.utc_date <= end)
 
     result = await session.execute(stmt)
@@ -111,6 +122,7 @@ async def get_my_teams(
     range: str = None,
     month: int = None,
     year: int = None,
+    viewer_tz: str | None = None,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -127,7 +139,7 @@ async def get_my_teams(
     )
 
     if range:
-        start, end = build_date_range(range, month, year)
+        start, end = build_date_range(range, month, year, viewer_tz)
         base_query = base_query.where(Match.utc_date >= start, Match.utc_date <= end)
         away_query = away_query.where(Match.utc_date >= start, Match.utc_date <= end)
 
@@ -154,6 +166,7 @@ async def get_my_top_motm_player(
     range: str = None,
     month: int = None,
     year: int = None,
+    viewer_tz: str | None = None,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -176,7 +189,7 @@ async def get_my_top_motm_player(
     )
 
     if range:
-        start, end = build_date_range(range, month, year)
+        start, end = build_date_range(range, month, year, viewer_tz)
         stmt = stmt.where(Match.utc_date >= start, Match.utc_date <= end)
 
     result = await session.execute(stmt)
@@ -188,6 +201,7 @@ async def get_my_top_competition(
     range: str = None,
     month: int = None,
     year: int = None,
+    viewer_tz: str | None = None,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -206,7 +220,7 @@ async def get_my_top_competition(
     )
 
     if range:
-        start, end = build_date_range(range, month, year)
+        start, end = build_date_range(range, month, year, viewer_tz)
         stmt = stmt.where(Match.utc_date >= start, Match.utc_date <= end)
 
     result = await session.execute(stmt)
@@ -218,6 +232,7 @@ async def get_total_matches(
     range: str = None,
     month: int = None,
     year: int = None,
+    viewer_tz: str | None = None,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -229,7 +244,7 @@ async def get_total_matches(
     )
 
     if range:
-        start, end = build_date_range(range, month, year)
+        start, end = build_date_range(range, month, year, viewer_tz)
         stmt = stmt.where(Match.utc_date >= start, Match.utc_date <= end)
 
     result = await session.execute(stmt)

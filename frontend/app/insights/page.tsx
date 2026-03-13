@@ -4,18 +4,19 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
-import { formatMatchDateTimeWithTimezone } from "@/lib/utils";
+import { formatMatchDateTimeWithTimezone, getDateKeyForDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-function buildQueryString(range: string, month: string | null, year: string | null): string {
+function buildQueryString(range: string, month: string | null, year: string | null, viewerTimezone?: string): string {
     if (range === "weekly") {
-        return "?range=weekly";
+        return viewerTimezone ? `?range=weekly&viewer_tz=${encodeURIComponent(viewerTimezone)}` : "?range=weekly";
     }
     // custom range
     const parts: string[] = ["range=custom"];
     if (year) parts.push(`year=${year}`);
     if (month) parts.push(`month=${month}`);
+    if (viewerTimezone) parts.push(`viewer_tz=${encodeURIComponent(viewerTimezone)}`);
     return `?${parts.join("&")}`;
 }
 
@@ -30,7 +31,8 @@ export default async function InsightsPage({
     const params = await searchParams;
     const range = (params.range as string) || "weekly";
     const month = (params.month as string) || null;
-    const year = (params.year as string) || String(new Date().getFullYear());
+    const currentYear = getDateKeyForDate(new Date(), timezoneFromHeader).slice(0, 4);
+    const year = (params.year as string) || currentYear;
 
     let error: string | null = null;
     let matches: any[] = [];
@@ -40,7 +42,7 @@ export default async function InsightsPage({
     let mostWatchedComp: any = null;
 
     try {
-        const qs = buildQueryString(range, month, year);
+        const qs = buildQueryString(range, month, year, timezoneFromHeader);
         const { getToken } = await auth();
         const token = await getToken();
         const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;

@@ -1,20 +1,35 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
-import { format, isToday, isTomorrow, isYesterday } from "date-fns";
 import Link from "next/link";
+import { addDaysToDateKey, getDateKeyForDate } from "@/lib/utils";
 
 interface DateSelectorProps {
-    currentDate: Date;
+    currentDateKey: string;
     prevLink: string;
     nextLink: string;
+    viewerTimezone?: string;
 }
 
-export function DateSelector({ currentDate, prevLink, nextLink }: DateSelectorProps) {
-    const getDisplayDate = (date: Date) => {
-        if (isToday(date)) return "Today, " + format(date, "MMM d");
-        if (isYesterday(date)) return "Yesterday, " + format(date, "MMM d");
-        if (isTomorrow(date)) return "Tomorrow, " + format(date, "MMM d");
-        return format(date, "EEEE, MMM d");
+function formatDateKey(dateKey: string, style: "short" | "long") {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    return new Intl.DateTimeFormat("en-US", {
+        weekday: style === "long" ? "long" : undefined,
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+    }).format(date);
+}
+
+export function DateSelector({ currentDateKey, prevLink, nextLink, viewerTimezone }: DateSelectorProps) {
+    const getDisplayDate = (dateKey: string) => {
+        const todayKey = getDateKeyForDate(new Date(), viewerTimezone);
+
+        if (dateKey === todayKey) return "Today, " + formatDateKey(dateKey, "short");
+        if (dateKey === addDaysToDateKey(todayKey, -1)) return "Yesterday, " + formatDateKey(dateKey, "short");
+        if (dateKey === addDaysToDateKey(todayKey, 1)) return "Tomorrow, " + formatDateKey(dateKey, "short");
+
+        return formatDateKey(dateKey, "long");
     };
 
     return (
@@ -26,7 +41,7 @@ export function DateSelector({ currentDate, prevLink, nextLink }: DateSelectorPr
                 </Button>
             </Link>
             <div className="flex-1 text-center font-semibold text-[15px] sm:text-base text-foreground">
-                {getDisplayDate(currentDate)}
+                {getDisplayDate(currentDateKey)}
             </div>
             <Link href={nextLink}>
                 <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 hover:bg-foreground/5 cursor-pointer" type="button">
