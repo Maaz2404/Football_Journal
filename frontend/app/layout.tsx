@@ -12,6 +12,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "FootBook",
   description: "A football journalling web application",
+  icons: {
+    icon: "/footbook_title_logo.png",
+  },
 };
 
 export default function RootLayout({

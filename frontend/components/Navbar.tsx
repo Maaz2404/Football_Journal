@@ -10,7 +10,7 @@ export function Navbar() {
                     {/* Make logo significantly bigger and add scale so the text fills the box */}
                     <div className="relative h-16 w-48 md:h-20 md:w-64 transition-transform hover:scale-105 active:scale-95">
                         <Image
-                            src="/unnamed-removebg-preview.png"
+                            src="/FootBook_Fulllogo.png"
                             alt="FootBook Logo"
                             fill
                             className="object-contain scale-[1.2] md:scale-[1.3] origin-left"
