@@ -1,16 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f4f4;
-  --foreground: #171717;
+  --background: #139429;
+  --foreground: #111827;
   --card-bg: #ffffff;
   --brand: #06402B;
   --accent: #2E8B57;
-  --border: #e5e7eb;
-  --card-glow-bg: #f9fafb;
-  --glow-border: rgba(34, 197, 94, 0.1);
+  --border: rgba(0, 0, 0, 0.15);
+  --card-glow-bg: rgba(255, 255, 255, 0.95);
+  --glow-border: rgba(34, 197, 94, 0.3);
   --button-neon: #059669;
   --border-gold: #b45309;
+
+  --background-radial: radial-gradient(circle at top center, #56d774 0%, rgb(6, 136, 43) 80%, #09731b 100%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,7 +27,7 @@
     --button-neon: #00ca51;
     --border-gold: #d1a12a;
 
-    --background-radial: radial-gradient(circle at top center, #1b3d2b 0%, #0a0a0a 65%);
+    --background-radial: radial-gradient(circle at top center, #285e42 0%, #163625 45%, #141414 90%);
   }
 }
 

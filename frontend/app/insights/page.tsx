@@ -86,8 +86,8 @@ export default async function InsightsPage({
                     {/* Top Stats Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Matches Watched */}
-                        <div className="bg-[var(--color-card-glow)] border border-button-neon/20 rounded-2xl p-6 shadow-[0_0_20px_rgba(0,202,81,0.05)] hover:border-button-neon/40 transition-all flex flex-col justify-between group min-h-[220px]">
-                            <h3 className="text-xs font-bold text-foreground/40 uppercase tracking-widest">Matches Watched</h3>
+                        <div className="bg-[var(--color-card-glow)] border border-button-neon/20 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_0_20px_rgba(0,202,81,0.05)] hover:border-button-neon/40 transition-all flex flex-col justify-between group min-h-[220px]">
+                            <h3 className="text-xs font-bold text-foreground/60 dark:text-foreground/40 uppercase tracking-widest">Matches Watched</h3>
                             <div className="flex items-center justify-between mt-4">
                                 <span className="text-7xl font-black text-button-neon drop-shadow-[0_0_15px_rgba(0,202,81,0.4)]">
                                     {totalMatches.total}
@@ -102,8 +102,8 @@ export default async function InsightsPage({
                         </div>
 
                         {/* Top MOTM */}
-                        <div className="bg-[var(--color-card-glow)] border border-button-neon/20 rounded-2xl p-6 shadow-[0_0_20px_rgba(0,202,81,0.05)] hover:border-button-neon/40 transition-all flex flex-col min-h-[220px]">
-                            <h3 className="text-xs font-bold text-foreground/40 uppercase tracking-widest mb-4">Top MOTM</h3>
+                        <div className="bg-[var(--color-card-glow)] border border-button-neon/20 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_0_20px_rgba(0,202,81,0.05)] hover:border-button-neon/40 transition-all flex flex-col min-h-[220px]">
+                            <h3 className="text-xs font-bold text-foreground/60 dark:text-foreground/40 uppercase tracking-widest mb-4">Top MOTM</h3>
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
                                 {motm ? (
                                     <>
@@ -117,8 +117,8 @@ export default async function InsightsPage({
                         </div>
 
                         {/* Teams Watched */}
-                        <div className="bg-[var(--color-card-glow)] border border-button-neon/20 rounded-2xl p-6 shadow-[0_0_20px_rgba(0,202,81,0.05)] hover:border-button-neon/40 transition-all flex flex-col min-h-[220px]">
-                            <h3 className="text-xs font-bold text-foreground/40 uppercase tracking-widest mb-4">Teams Watched</h3>
+                        <div className="bg-[var(--color-card-glow)] border border-button-neon/20 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_0_20px_rgba(0,202,81,0.05)] hover:border-button-neon/40 transition-all flex flex-col min-h-[220px]">
+                            <h3 className="text-xs font-bold text-foreground/60 dark:text-foreground/40 uppercase tracking-widest mb-4">Teams Watched</h3>
                             <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
                                 {teams.length === 0 ? (
                                     <div className="h-full flex items-center justify-center">

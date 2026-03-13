@@ -54,7 +54,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
 
     return (
         <div className="flex flex-wrap items-center gap-4 self-center justify-center w-full max-w-2xl mx-auto">
-            <div className="flex items-center bg-black/40 backdrop-blur-md border border-brand/40 rounded-full p-1 shadow-[0_0_20px_rgba(6,64,43,0.3)]">
+            <div className="flex items-center bg-card dark:bg-black/40 backdrop-blur-md border border-brand/40 rounded-full p-1 shadow-[0_0_20px_rgba(6,64,43,0.3)]">
                 {/* Weekly toggle */}
                 <button
                     onClick={() => navigate({ range: "weekly", month: null, year: null })}

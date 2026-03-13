@@ -92,7 +92,7 @@ export default async function HomePage({
                   </svg>
                   {competition}
                 </summary>
-                <div className="flex flex-col ml-6 border-l-2 border-border pl-4">
+                <div className="flex flex-col ml-6 pl-4">
                   {compMatches.map((m) => (
                     <MatchCard key={m.id} match={m} viewerTimezone={timezoneFromHeader} />
                   ))}

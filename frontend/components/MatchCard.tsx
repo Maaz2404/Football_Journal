@@ -20,7 +20,7 @@ export function MatchCard({ match, viewerTimezone }: { match: MatchProps; viewer
     const dateTime = formatMatchDateTimeWithTimezone(match.utcDate, viewerTimezone);
 
     const content = (
-        <Card className={cn("transition-all bg-card/60 dark:bg-emerald-950/20 backdrop-blur-sm border-border/50",
+        <Card className={cn("transition-all bg-card dark:bg-white/[0.08] border-border/50",
             isFinished ? "hover:border-accent/40 hover:shadow-md cursor-pointer" : "opacity-90")}>
             <CardContent className="p-4 sm:p-5 flex items-center justify-between">
                 <div className="flex flex-col gap-1 w-full max-w-[220px] sm:max-w-sm">
