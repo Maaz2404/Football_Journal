@@ -11,6 +11,8 @@ import { MotmSelector } from "@/components/MotmSelector";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
+
+
 export function MatchClient({
     matchData,
     initialReviews,
@@ -215,25 +217,23 @@ export function MatchClient({
                     </div>
                 )}
 
-                <h1 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold text-foreground flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 w-full max-w-4xl">
-                    <div className="flex flex-row md:flex-row-reverse items-center justify-end flex-1 gap-5">
-                        <span className="whitespace-nowrap tracking-tight">{home_team.short_name || home_team.name}</span>
-                        {home_team.crest_url && <img src={home_team.crest_url} alt={home_team.short_name} className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-2xl" />}
+                <h1 className="text-base sm:text-3xl lg:text-5xl font-extrabold text-foreground flex flex-row items-center justify-center gap-6 sm:gap-12 md:gap-16 w-full px-3 sm:px-6">
+                    <div className="flex items-center justify-end flex-1">
+                        {home_team.crest_url && <img src={home_team.crest_url} alt={home_team.short_name} className="w-16 h-16 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain drop-shadow-2xl" />}
                     </div>
 
-                    <div className="flex items-center justify-center tracking-widest px-2 drop-shadow-[0_0_15px_rgba(209,161,42,0.4)]">
+                    <div className="flex items-center justify-center tracking-widest px-1 sm:px-2 drop-shadow-[0_0_15px_rgba(209,161,42,0.4)] shrink-0">
                         {isFinished ? (
-                            <span className="text-[var(--color-border-gold)] text-5xl sm:text-6xl md:text-7xl">
-                                {match.home_score} <span className="opacity-70 text-4xl sm:text-5xl">-</span> {match.away_score}
+                            <span className="text-[var(--color-border-gold)] text-2xl sm:text-6xl md:text-7xl whitespace-nowrap">
+                                {match.home_score} <span className="opacity-70 text-xl sm:text-5xl">-</span> {match.away_score}
                             </span>
                         ) : (
-                            <span className="text-foreground/30 font-light text-3xl">vs</span>
+                            <span className="text-foreground/30 font-light text-xl sm:text-3xl">vs</span>
                         )}
                     </div>
 
-                    <div className="flex flex-row items-center justify-start flex-1 gap-5">
-                        {away_team.crest_url && <img src={away_team.crest_url} alt={away_team.short_name} className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-2xl" />}
-                        <span className="whitespace-nowrap tracking-tight">{away_team.short_name || away_team.name}</span>
+                    <div className="flex items-center justify-start flex-1">
+                        {away_team.crest_url && <img src={away_team.crest_url} alt={away_team.short_name} className="w-16 h-16 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain drop-shadow-2xl" />}
                     </div>
                 </h1>
 
