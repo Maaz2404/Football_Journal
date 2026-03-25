@@ -19,11 +19,17 @@ export default async function MatchPage({
     let motmLeaders = [];
 
     try {
-        matchData = await fetchFromApi(`/matches/${id}`);
-        const [reviewsResult, motmResult] = await Promise.allSettled([
-            fetchFromApi(`/reviews/match/${id}`),
-            fetchFromApi(`/stats/match/${id}/motm-leader`),
+        const [matchResult, reviewsResult, motmResult] = await Promise.allSettled([
+            fetchFromApi(`/matches/${id}`, { skipAuth: true }),
+            fetchFromApi(`/reviews/match/${id}`, { skipAuth: true }),
+            fetchFromApi(`/stats/match/${id}/motm-leader`, { skipAuth: true }),
         ]);
+
+        if (matchResult.status === "fulfilled") {
+            matchData = matchResult.value;
+        } else {
+            throw new Error("Failed to fetch match data");
+        }
 
         reviewsData = reviewsResult.status === "fulfilled" ? reviewsResult.value : [];
         motmLeaders = motmResult.status === "fulfilled" && Array.isArray(motmResult.value) ? motmResult.value : [];

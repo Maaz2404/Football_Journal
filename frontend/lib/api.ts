@@ -2,10 +2,10 @@ import { auth } from '@clerk/nextjs/server';
 
 const API_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 
-export async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
+export async function fetchFromApi(endpoint: string, options: RequestInit & { skipAuth?: boolean } = {}) {
     const headers = new Headers(options.headers);
-    if (!headers.has('Authorization')) {
-        // Try to get token only when no Authorization header was provided.
+    if (!headers.has('Authorization') && !options.skipAuth) {
+        // Try to get token only when no Authorization header was provided and skipAuth is false.
         let token = null;
         try {
             const { getToken } = await auth();
@@ -24,6 +24,8 @@ export async function fetchFromApi(endpoint: string, options: RequestInit = {}) 
         headers,
         cache: options.cache || 'no-store'
     };
+    // remove custom config to prevent RequestInit type errors
+    delete (fetchOptions as any).skipAuth;
 
     // Clean URL parsing to avoid double slashes when composing absolute endpoint URLs.
     let baseUrl = API_URL;
