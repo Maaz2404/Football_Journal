@@ -70,7 +70,8 @@ origins = [
     "http://localhost:3000",          # Next.js local dev
     "https://futbook.vercel.app", 
     "https://www.footbook.app",
-    "https://footbook.app",           # Production frontend
+    "https://footbook.app",
+    "https://dashboard.uptimerobot.com/"
 ]
 
 app.add_middleware(
