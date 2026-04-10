@@ -1,5 +1,38 @@
 import asyncio
+import os
+from fastapi import FastAPI
+import uvicorn
+
 from services.ingestion.ingestion import scheduler_main
 
+app = FastAPI()
+scheduler_task = None
+
+
+@app.get("/")
+async def health_check():
+    return {"status": "Scheduler is running"}
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    global scheduler_task
+    if scheduler_task is None:
+        scheduler_task = asyncio.create_task(scheduler_main())
+        print("Scheduler started...")
+
+
+@app.on_event("shutdown")
+async def stop_scheduler():
+    global scheduler_task
+    if scheduler_task:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            print("Scheduler stopped.")
+
+
 if __name__ == "__main__":
-    asyncio.run(scheduler_main())
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
