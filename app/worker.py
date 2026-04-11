@@ -1,17 +1,21 @@
+from fastapi import FastAPI
 import asyncio
 import os
-from fastapi import FastAPI
-import uvicorn
-
-from services.ingestion.ingestion import scheduler_main
+from services.ingestion.ingestion import scheduler_main, ingest_matches_job
 
 app = FastAPI()
 scheduler_task = None
 
 
-@app.get("/",methods=["GET", "HEAD"])
+@app.api_route("/", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "Scheduler is running"}
+
+
+@app.api_route("/trigger", methods=["GET", "HEAD"])
+async def trigger():
+    await ingest_matches_job()
+    return {"status": "ingestion run"}
 
 
 @app.on_event("startup")
@@ -31,14 +35,3 @@ async def stop_scheduler():
             await scheduler_task
         except asyncio.CancelledError:
             print("Scheduler stopped.")
-            
-@app.get("/trigger", methods=["GET", "HEAD"])
-async def trigger():
-    from services.ingestion.ingestion import ingest_matches_job
-    await ingest_matches_job()
-    return {"status": "ingestion run"}            
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
