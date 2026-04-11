@@ -4,12 +4,12 @@ from core.config import get_settings
 settings = get_settings()
 
 BASE_URL = settings.FOOTBALL_DATA_BASE_URL
-
+TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 headers = {"X-Auth-Token": settings.FOOTBALL_DATA_API_KEY}
 
 async def _get(endpoint: str, params: dict = None):
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         resp = await client.get(f"{BASE_URL}{endpoint}", headers=headers, params=params)
         resp.raise_for_status()
         return resp.json()

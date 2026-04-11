@@ -9,7 +9,7 @@ app = FastAPI()
 scheduler_task = None
 
 
-@app.get("/")
+@app.get("/",methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "Scheduler is running"}
 
@@ -32,7 +32,7 @@ async def stop_scheduler():
         except asyncio.CancelledError:
             print("Scheduler stopped.")
             
-@app.get("/trigger")
+@app.get("/trigger", methods=["GET", "HEAD"])
 async def trigger():
     from services.ingestion.ingestion import ingest_matches_job
     await ingest_matches_job()

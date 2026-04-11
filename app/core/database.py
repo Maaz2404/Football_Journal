@@ -16,7 +16,9 @@ engine = create_async_engine(
     future=True,
     connect_args={
         "statement_cache_size": 0
-    }
+    },
+    pool_pre_ping=True,  # Reconnect automatically
+    pool_recycle=300,    # Refresh stale connections
 )
 
 AsyncSessionLocal = async_sessionmaker(
