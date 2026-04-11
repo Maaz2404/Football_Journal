@@ -31,6 +31,12 @@ async def stop_scheduler():
             await scheduler_task
         except asyncio.CancelledError:
             print("Scheduler stopped.")
+            
+@app.get("/trigger")
+async def trigger():
+    from services.ingestion.ingestion import ingest_matches_job
+    await ingest_matches_job()
+    return {"status": "ingestion run"}            
 
 
 if __name__ == "__main__":
