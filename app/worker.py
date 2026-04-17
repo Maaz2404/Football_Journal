@@ -41,13 +41,13 @@ app = FastAPI(lifespan=lifespan)
 
 
 # Health check (Render + UptimeRobot)
-@app.get("/")
+@app.get("/",methods=["GET","HEAD"])
 async def health_check():
     return {"status": "running"}
 
 
 # Manual / automated trigger
-@app.get("/trigger")
+@app.get("/trigger",methods=["GET","HEAD"])
 async def trigger():
     if job_lock.locked():
         return {"status": "skipped", "reason": "job already running"}
