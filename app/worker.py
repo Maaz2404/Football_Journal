@@ -4,23 +4,27 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
 
-from services.ingestion.ingestion import (
-    scheduler_main,
-    ingest_matches_job,
-)
+from services.ingestion.ingestion import scheduler_main, ingest_matches_job
 
 scheduler_task = None
+job_lock = asyncio.Lock()  # prevent overlapping runs
+
+
+async def safe_scheduler():
+    try:
+        await scheduler_main()
+    except Exception as e:
+        print(f"❌ Scheduler crashed: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage startup and shutdown events."""
     global scheduler_task
 
     # --- Startup ---
     if scheduler_task is None:
-        scheduler_task = asyncio.create_task(scheduler_main())
-        print("Scheduler started...")
+        scheduler_task = asyncio.create_task(safe_scheduler())
+        print("✅ Scheduler started...")
 
     yield
 
@@ -30,23 +34,33 @@ async def lifespan(app: FastAPI):
         try:
             await scheduler_task
         except asyncio.CancelledError:
-            print("Scheduler stopped.")
+            print("🛑 Scheduler stopped.")
 
 
 app = FastAPI(lifespan=lifespan)
 
 
-# Health check endpoint (for UptimeRobot and Render)
-@app.api_route("/", methods=["GET", "HEAD"])
+# Health check (Render + UptimeRobot)
+@app.get("/")
 async def health_check():
-    return {"status": "Scheduler is running"}
+    return {"status": "running"}
 
 
-# Trigger endpoint to manually run ingestion
-@app.api_route("/trigger", methods=["GET", "HEAD"])
+# Manual / automated trigger
+@app.get("/trigger")
 async def trigger():
-    await ingest_matches_job()
-    return {"status": "ingestion run completed"}
+    if job_lock.locked():
+        return {"status": "skipped", "reason": "job already running"}
+
+    async with job_lock:
+        try:
+            print("🚀 Running ingestion job...")
+            await ingest_matches_job()
+            print("✅ Ingestion completed")
+            return {"status": "completed"}
+        except Exception as e:
+            print(f"❌ Ingestion failed: {e}")
+            return {"status": "error", "detail": str(e)}
 
 
 if __name__ == "__main__":
