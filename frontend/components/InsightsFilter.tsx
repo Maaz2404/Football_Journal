@@ -19,6 +19,7 @@ const MONTHS = [
 ];
 
 const currentYear = new Date().getFullYear();
+const currentMonth = String(new Date().getMonth() + 1);
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
 interface InsightsFilterProps {
@@ -57,7 +58,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
             <div className="flex items-center bg-card dark:bg-black/40 backdrop-blur-md border border-brand/40 rounded-full p-1 shadow-[0_0_20px_rgba(6,64,43,0.3)]">
                 {/* Weekly toggle */}
                 <button
-                    onClick={() => navigate({ range: "weekly", month: null, year: null })}
+                    onClick={() => navigate({ range: "weekly", month: null, year: null, page: null })}
                     disabled={isPending}
                     className={`px-8 py-2 text-sm font-bold rounded-full transition-all duration-300 ${isWeekly
                         ? "bg-brand text-button-neon shadow-[0_0_15px_rgba(0,202,81,0.2)] border border-button-neon/30"
@@ -67,7 +68,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                     Last 7 days
                 </button>
                 <button
-                    onClick={() => navigate({ range: "custom", month: null, year: String(currentYear) })}
+                    onClick={() => navigate({ range: "custom", month: currentMonth, year: String(currentYear), page: null })}
                     disabled={isPending}
                     className={`px-8 py-2 text-sm font-bold rounded-full transition-all duration-300 ${isCustom
                         ? "bg-brand text-button-neon shadow-[0_0_15px_rgba(0,202,81,0.2)] border border-button-neon/30"
@@ -86,7 +87,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                         <select
                             value={month ?? ""}
                             onChange={(e) =>
-                                navigate({ month: e.target.value || null })
+                                navigate({ month: e.target.value || null, page: null })
                             }
                             disabled={isPending}
                             className="text-sm font-semibold text-foreground bg-transparent outline-none cursor-pointer hover:text-button-neon transition-colors"
@@ -106,7 +107,7 @@ export function InsightsFilter({ range, month, year }: InsightsFilterProps) {
                         <select
                             value={year ?? String(currentYear)}
                             onChange={(e) =>
-                                navigate({ year: e.target.value })
+                                navigate({ year: e.target.value, page: null })
                             }
                             disabled={isPending}
                             className="text-sm font-semibold text-foreground bg-transparent outline-none cursor-pointer hover:text-button-neon transition-colors"

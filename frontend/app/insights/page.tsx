@@ -8,16 +8,53 @@ import { formatMatchDateTimeWithTimezone, getDateKeyForDate } from "@/lib/utils"
 
 export const dynamic = "force-dynamic";
 
-function buildQueryString(range: string, month: string | null, year: string | null, viewerTimezone?: string): string {
+const MATCHES_PAGE_SIZE = 10;
+
+type PaginatedMatchesResponse = {
+    items: any[];
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+};
+
+function buildQueryString(
+    range: string,
+    month: string | null,
+    year: string | null,
+    page: number,
+    viewerTimezone?: string
+): string {
+    const offset = Math.max(0, (page - 1) * MATCHES_PAGE_SIZE);
+
     if (range === "weekly") {
-        return viewerTimezone ? `?range=weekly&viewer_tz=${encodeURIComponent(viewerTimezone)}` : "?range=weekly";
+        const parts: string[] = ["range=weekly", `limit=${MATCHES_PAGE_SIZE}`, `offset=${offset}`];
+        if (viewerTimezone) parts.push(`viewer_tz=${encodeURIComponent(viewerTimezone)}`);
+        return `?${parts.join("&")}`;
     }
+
     // custom range
-    const parts: string[] = ["range=custom"];
+    const parts: string[] = ["range=custom", `limit=${MATCHES_PAGE_SIZE}`, `offset=${offset}`];
     if (year) parts.push(`year=${year}`);
     if (month) parts.push(`month=${month}`);
     if (viewerTimezone) parts.push(`viewer_tz=${encodeURIComponent(viewerTimezone)}`);
     return `?${parts.join("&")}`;
+}
+
+function buildInsightsHref(range: string, month: string | null, year: string | null, page: number): string {
+    const params = new URLSearchParams();
+    params.set("range", range);
+
+    if (range === "custom") {
+        if (month) params.set("month", month);
+        if (year) params.set("year", year);
+    }
+
+    if (page > 1) {
+        params.set("page", String(page));
+    }
+
+    return `/insights?${params.toString()}`;
 }
 
 export default async function InsightsPage({
@@ -30,31 +67,66 @@ export default async function InsightsPage({
 
     const params = await searchParams;
     const range = (params.range as string) || "weekly";
-    const month = (params.month as string) || null;
-    const currentYear = getDateKeyForDate(new Date(), timezoneFromHeader).slice(0, 4);
+    const currentDateKey = getDateKeyForDate(new Date(), timezoneFromHeader);
+    const currentYear = currentDateKey.slice(0, 4);
+    const currentMonth = String(Number(currentDateKey.slice(5, 7)));
+    const monthFromParams = (params.month as string) || null;
+    const month = range === "custom" ? (monthFromParams || currentMonth) : monthFromParams;
     const year = (params.year as string) || currentYear;
 
+    const pageParam = Number(params.page as string);
+    const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+
     let error: string | null = null;
-    let matches: any[] = [];
+    let matchesPage: PaginatedMatchesResponse = {
+        items: [],
+        total: 0,
+        limit: MATCHES_PAGE_SIZE,
+        offset: 0,
+        has_more: false,
+    };
     let teams: any[] = [];
     let motm: any = null;
     let totalMatches = { total: 0 };
     let mostWatchedComp: any = null;
 
     try {
-        const qs = buildQueryString(range, month, year, timezoneFromHeader);
+        const qs = buildQueryString(range, month, year, page, timezoneFromHeader);
         const { getToken } = await auth();
         const token = await getToken();
         const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;
         const [mRes, tRes, moRes, compRes, totRes] = await Promise.all([
-            fetchFromApi(`/stats/me/matches${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => []),
+            fetchFromApi(`/stats/me/matches${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => ({
+                items: [],
+                total: 0,
+                limit: MATCHES_PAGE_SIZE,
+                offset: 0,
+                has_more: false,
+            })),
             fetchFromApi(`/stats/me/teams${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => []),
             fetchFromApi(`/stats/me/motm-player${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => null),
             fetchFromApi(`/stats/me/most-watched-competition${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => null),
             fetchFromApi(`/stats/me/total-matches${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => ({ total: 0 })),
         ]);
 
-        matches = Array.isArray(mRes) ? mRes : [];
+        if (Array.isArray(mRes)) {
+            // Backward compatibility with older API shape.
+            matchesPage = {
+                items: mRes,
+                total: mRes.length,
+                limit: MATCHES_PAGE_SIZE,
+                offset: Math.max(0, (page - 1) * MATCHES_PAGE_SIZE),
+                has_more: mRes.length === MATCHES_PAGE_SIZE,
+            };
+        } else if (mRes && typeof mRes === "object" && "items" in mRes) {
+            matchesPage = {
+                items: Array.isArray((mRes as PaginatedMatchesResponse).items) ? (mRes as PaginatedMatchesResponse).items : [],
+                total: Number((mRes as PaginatedMatchesResponse).total) || 0,
+                limit: Number((mRes as PaginatedMatchesResponse).limit) || MATCHES_PAGE_SIZE,
+                offset: Number((mRes as PaginatedMatchesResponse).offset) || 0,
+                has_more: Boolean((mRes as PaginatedMatchesResponse).has_more),
+            };
+        }
         teams = Array.isArray(tRes) ? tRes : [];
         motm = moRes;
         mostWatchedComp = compRes;
@@ -63,6 +135,11 @@ export default async function InsightsPage({
         console.error("Critical error in insights:", _err);
         error = "Failed to load insights. Make sure you are logged in and the backend is running.";
     }
+
+    const hasPrevPage = page > 1;
+    const hasNextPage = matchesPage.has_more;
+    const currentPageStart = matchesPage.total === 0 ? 0 : matchesPage.offset + 1;
+    const currentPageEnd = matchesPage.offset + matchesPage.items.length;
 
     return (
         <div className="max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8 pb-16 px-4">
@@ -173,14 +250,21 @@ export default async function InsightsPage({
 
                     {/* Recent Matches Column */}
                     <div>
-                        <h2 className="text-3xl font-black text-foreground mb-8 px-1 tracking-tight">Recent Matches Logs</h2>
-                        {matches.length === 0 ? (
+                        <div className="flex items-center justify-between gap-4 mb-8 px-1 flex-wrap">
+                            <h2 className="text-3xl font-black text-foreground tracking-tight">Recent Matches Logs</h2>
+                            <div className="text-xs font-bold text-foreground/50 uppercase tracking-wider">
+                                {currentPageStart}-{currentPageEnd} of {matchesPage.total}
+                            </div>
+                        </div>
+
+                        {matchesPage.items.length === 0 ? (
                             <div className="text-center p-20 bg-[var(--color-card-glow)] rounded-3xl border border-white/5 shadow-inner">
                                 <p className="text-foreground/30 font-bold text-lg">No logs found for this period.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {matches.map((m: any) => {
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {matchesPage.items.map((m: any) => {
                                     const dateTime = formatMatchDateTimeWithTimezone(m.utc_date, timezoneFromHeader);
 
                                     return (
@@ -236,7 +320,36 @@ export default async function InsightsPage({
                                     </Link>
                                     );
                                 })}
-                            </div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-3 mt-8">
+                                    {hasPrevPage ? (
+                                        <Link
+                                            href={buildInsightsHref(range, month, year, page - 1)}
+                                            className="px-4 py-2 rounded-xl border border-white/10 text-foreground/80 font-semibold text-sm hover:border-button-neon/40 hover:text-button-neon transition-colors"
+                                        >
+                                            Previous
+                                        </Link>
+                                    ) : (
+                                        <span className="px-4 py-2 rounded-xl border border-white/5 text-foreground/30 font-semibold text-sm cursor-not-allowed">
+                                            Previous
+                                        </span>
+                                    )}
+
+                                    {hasNextPage ? (
+                                        <Link
+                                            href={buildInsightsHref(range, month, year, page + 1)}
+                                            className="px-4 py-2 rounded-xl border border-button-neon/40 text-button-neon font-semibold text-sm hover:bg-button-neon/10 transition-colors"
+                                        >
+                                            Next
+                                        </Link>
+                                    ) : (
+                                        <span className="px-4 py-2 rounded-xl border border-white/5 text-foreground/30 font-semibold text-sm cursor-not-allowed">
+                                            Next
+                                        </span>
+                                    )}
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>

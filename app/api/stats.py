@@ -1,21 +1,24 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import select, func, union_all
-from sqlalchemy.orm import aliased
-from datetime import datetime, timedelta, timezone
 from calendar import monthrange
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, select, union_all
+from sqlalchemy.orm import aliased
 from sqlmodel import Session
-from models.match import Match
-from models.team import Team
+
+from core.auth import get_current_user
+from core.database import get_db
 from models.competition import Competition
+from models.match import Match
 from models.player import Player
 from models.review import Review
 from models.review_player_tag import ReviewPlayerTag, ReviewPlayerTagType
+from models.team import Team
 from models.user import User
-from core.database import get_db
-from core.auth import get_current_user
 
 router = APIRouter(prefix="/stats", tags=["stats"])
+
 
 def _resolve_viewer_timezone(viewer_tz: str | None):
     if not viewer_tz:
@@ -26,7 +29,12 @@ def _resolve_viewer_timezone(viewer_tz: str | None):
         return timezone.utc
 
 
-def build_date_range(range_type: str, month: int = None, year: int = None, viewer_tz: str | None = None):
+def build_date_range(
+    range_type: str,
+    month: int = None,
+    year: int = None,
+    viewer_tz: str | None = None,
+):
     tzinfo = _resolve_viewer_timezone(viewer_tz)
     now_local = datetime.now(timezone.utc).astimezone(tzinfo)
 
@@ -51,13 +59,13 @@ def build_date_range(range_type: str, month: int = None, year: int = None, viewe
 
     if range_type == "custom":
         if month and year:
-            # custom with month+year → monthly window
+            # custom with month+year -> monthly window
             start_local = datetime(year, month, 1, 0, 0, 0, tzinfo=tzinfo)
             last_day = monthrange(year, month)[1]
             end_local = datetime(year, month, last_day, 23, 59, 59, tzinfo=tzinfo)
             return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
         if year:
-            # custom with year only → full year
+            # custom with year only -> full year
             start_local = datetime(year, 1, 1, 0, 0, 0, tzinfo=tzinfo)
             end_local = datetime(year, 12, 31, 23, 59, 59, tzinfo=tzinfo)
             return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
@@ -71,7 +79,7 @@ async def get_my_matches(
     month: int = None,
     year: int = None,
     viewer_tz: str | None = None,
-    limit: int = 20,
+    limit: int = 10,
     offset: int = 0,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -79,30 +87,46 @@ async def get_my_matches(
     home_team = aliased(Team)
     away_team = aliased(Team)
 
-    stmt = (
+    if offset < 0:
+        offset = 0
+
+    # Enforce max page size of 10 for recent match logs.
+    effective_limit = min(max(limit, 1), 10)
+
+    base_stmt = (
         select(
             Match,
             home_team.short_name.label("home_team_name"),
             home_team.crest_url.label("home_team_crest"),
             away_team.short_name.label("away_team_name"),
             away_team.crest_url.label("away_team_crest"),
-            Competition.name.label("competition_name")
+            Competition.name.label("competition_name"),
         )
         .join(Review, Review.match_id == Match.id)
         .join(home_team, Match.home_team_id == home_team.id)
         .join(away_team, Match.away_team_id == away_team.id)
         .join(Competition, Match.competition_id == Competition.id)
         .where(Review.user_id == current_user.id)
-        .order_by(Match.utc_date.desc())
-        .limit(limit)
-        .offset(offset)
+    )
+
+    total_stmt = (
+        select(func.count())
+        .select_from(Review)
+        .join(Match, Review.match_id == Match.id)
+        .where(Review.user_id == current_user.id)
     )
 
     if range:
         start, end = build_date_range(range, month, year, viewer_tz)
-        stmt = stmt.where(Match.utc_date >= start, Match.utc_date <= end)
+        base_stmt = base_stmt.where(Match.utc_date >= start, Match.utc_date <= end)
+        total_stmt = total_stmt.where(Match.utc_date >= start, Match.utc_date <= end)
+
+    stmt = base_stmt.order_by(Match.utc_date.desc()).limit(effective_limit).offset(offset)
 
     result = await session.execute(stmt)
+    total_result = await session.execute(total_stmt)
+    total_count = total_result.scalar_one()
+
     matches_data = []
     for match, h_name, h_crest, a_name, a_crest, c_name in result:
         m_dict = match.model_dump()
@@ -113,9 +137,14 @@ async def get_my_matches(
         m_dict["competition_name"] = c_name
         matches_data.append(m_dict)
 
-    return matches_data
+    return {
+        "items": matches_data,
+        "total": total_count,
+        "limit": effective_limit,
+        "offset": offset,
+        "has_more": (offset + effective_limit) < total_count,
+    }
 
-from sqlalchemy import func, union_all
 
 @router.get("/me/teams")
 async def get_my_teams(
@@ -147,10 +176,10 @@ async def get_my_teams(
 
     stmt = (
         select(
-            union_stmt.c.team_id, 
-            Team.short_name.label("team_name"), 
+            union_stmt.c.team_id,
+            Team.short_name.label("team_name"),
             Team.crest_url.label("crest_url"),
-            func.count().label("count")
+            func.count().label("count"),
         )
         .join(Team, union_stmt.c.team_id == Team.id)
         .group_by(union_stmt.c.team_id, Team.short_name, Team.crest_url)
@@ -160,6 +189,7 @@ async def get_my_teams(
     result = await session.execute(stmt)
     rows = result.all()
     return [dict(row._mapping) for row in rows]
+
 
 @router.get("/me/motm-player")
 async def get_my_top_motm_player(
@@ -174,7 +204,7 @@ async def get_my_top_motm_player(
         select(
             ReviewPlayerTag.player_id,
             Player.name.label("player_name"),
-            func.count().label("count")
+            func.count().label("count"),
         )
         .join(Review, Review.id == ReviewPlayerTag.review_id)
         .join(Match, Match.id == Review.match_id)
@@ -196,6 +226,7 @@ async def get_my_top_motm_player(
     row = result.first()
     return dict(row._mapping) if row else None
 
+
 @router.get("/me/most-watched-competition")
 async def get_my_top_competition(
     range: str = None,
@@ -209,7 +240,7 @@ async def get_my_top_competition(
         select(
             Match.competition_id,
             Competition.name.label("competition_name"),
-            func.count().label("count")
+            func.count().label("count"),
         )
         .join(Review, Review.match_id == Match.id)
         .join(Competition, Competition.id == Match.competition_id)
@@ -226,6 +257,7 @@ async def get_my_top_competition(
     result = await session.execute(stmt)
     row = result.first()
     return dict(row._mapping) if row else None
+
 
 @router.get("/me/total-matches")
 async def get_total_matches(
@@ -250,6 +282,7 @@ async def get_total_matches(
     result = await session.execute(stmt)
     return {"total": result.scalar_one()}
 
+
 @router.get("/match/{match_id}/motm-leader")
 async def get_match_motm_leader(
     match_id: int,
@@ -259,7 +292,7 @@ async def get_match_motm_leader(
     counts_subquery = (
         select(
             ReviewPlayerTag.player_id,
-            func.count().label("count")
+            func.count().label("count"),
         )
         .join(Review, Review.id == ReviewPlayerTag.review_id)
         .where(
