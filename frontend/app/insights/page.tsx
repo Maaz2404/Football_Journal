@@ -69,9 +69,7 @@ export default async function InsightsPage({
     const range = (params.range as string) || "weekly";
     const currentDateKey = getDateKeyForDate(new Date(), timezoneFromHeader);
     const currentYear = currentDateKey.slice(0, 4);
-    const currentMonth = String(Number(currentDateKey.slice(5, 7)));
-    const monthFromParams = (params.month as string) || null;
-    const month = range === "custom" ? (monthFromParams || currentMonth) : monthFromParams;
+    const month = (params.month as string) || null;
     const year = (params.year as string) || currentYear;
 
     const pageParam = Number(params.page as string);
