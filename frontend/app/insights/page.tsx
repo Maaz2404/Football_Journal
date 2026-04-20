@@ -94,17 +94,17 @@ export default async function InsightsPage({
         const token = await getToken();
         const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;
         const [mRes, tRes, moRes, compRes, totRes] = await Promise.all([
-            fetchFromApi(`/stats/me/matches${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => ({
+            fetchFromApi(`/stats/me/matches${qs}`, { headers: authHeaders, skipAuth: true, cache: "no-store" }).catch(() => ({
                 items: [],
                 total: 0,
                 limit: MATCHES_PAGE_SIZE,
                 offset: 0,
                 has_more: false,
             })),
-            fetchFromApi(`/stats/me/teams${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => []),
-            fetchFromApi(`/stats/me/motm-player${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => null),
-            fetchFromApi(`/stats/me/most-watched-competition${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => null),
-            fetchFromApi(`/stats/me/total-matches${qs}`, { headers: authHeaders, skipAuth: true }).catch(() => ({ total: 0 })),
+            fetchFromApi(`/stats/me/teams${qs}`, { headers: authHeaders, skipAuth: true, cache: "no-store" }).catch(() => []),
+            fetchFromApi(`/stats/me/motm-player${qs}`, { headers: authHeaders, skipAuth: true, cache: "no-store" }).catch(() => null),
+            fetchFromApi(`/stats/me/most-watched-competition${qs}`, { headers: authHeaders, skipAuth: true, cache: "no-store" }).catch(() => null),
+            fetchFromApi(`/stats/me/total-matches${qs}`, { headers: authHeaders, skipAuth: true, cache: "no-store" }).catch(() => ({ total: 0 })),
         ]);
 
         if (Array.isArray(mRes)) {

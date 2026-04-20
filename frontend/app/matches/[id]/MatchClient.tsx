@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { FocusLevelSelector } from "@/components/FocusLevelSelector";
 import { ReviewCard } from "@/components/ReviewCard";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { cn, formatMatchDateTimeWithTimezone } from "@/lib/utils";
 import { MotmSelector } from "@/components/MotmSelector";
+import Image from "next/image";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
@@ -18,17 +19,18 @@ export function MatchClient({
     initialReviews,
     motmLeaders = [],
     viewerTimezone,
+    currentUserId,
 }: {
     matchData: any,
     initialReviews: any[],
     motmLeaders?: any[],
     viewerTimezone?: string,
+    currentUserId?: string | null,
 }) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
     const [notes, setNotes] = useState("");
     const [motm, setMotm] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [dbUser, setDbUser] = useState<any>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [showAllMotm, setShowAllMotm] = useState(false);
 
@@ -38,36 +40,39 @@ export function MatchClient({
     const { getToken, isSignedIn } = useAuth();
     const router = useRouter();
 
-    const allPlayers = [...(home_squad_players || []), ...(away_squad_players || [])];
+    const allPlayers = useMemo(() => [...(home_squad_players || []), ...(away_squad_players || [])], [home_squad_players, away_squad_players]);
+    const playersById = useMemo(() => new Map(allPlayers.map((player: any) => [player.id, player])), [allPlayers]);
+    const userReview = useMemo(
+        () => (currentUserId ? initialReviews.find((review) => String(review.user_id) === String(currentUserId)) : null),
+        [currentUserId, initialReviews]
+    );
+    const allReviewsList = useMemo(
+        () => initialReviews.filter((review) => review.notes == null || String(review.notes).trim() !== ""),
+        [initialReviews]
+    );
+    const reviewCards = useMemo(
+        () => allReviewsList.map((r: any) => {
+            const motmPlayer = r.motm_player_id ? playersById.get(r.motm_player_id) : null;
+            const isCurrentUser = currentUserId && String(r.user_id) === String(currentUserId);
+            const reviewDate = formatMatchDateTimeWithTimezone(r.created_at, viewerTimezone);
 
-    useEffect(() => {
-        let isMounted = true;
-        if (!API_URL) {
-            console.error("Missing NEXT_PUBLIC_API_URL. Client API requests are disabled.");
-            return () => { isMounted = false; };
-        }
-        if (isSignedIn) {
-            (async () => {
-                try {
-                    const token = await getToken({ template: 'fastapi' });
-                    const baseUrl = API_URL;
-                    const r = await fetch(`${baseUrl}/auth/me`, {
-                        headers: { "Authorization": `Bearer ${token}` }
-                    });
-                    if (r.ok) {
-                        const data = await r.json();
-                        if (isMounted) setDbUser(data);
-                    }
-                } catch (e) {
-                    console.error("Auth sync error:", e);
-                }
-            })();
-        }
-        return () => { isMounted = false; };
-    }, [isSignedIn, getToken]);
-
-    const userReview = dbUser ? initialReviews.find(r => r.user_id === dbUser.id) : null;
-    const allReviewsList = initialReviews.filter((review) => review.notes == null || String(review.notes).trim() !== "");
+            return (
+                <ReviewCard
+                    key={r.id}
+                    review={{
+                        id: r.id,
+                        username: isCurrentUser ? "You" : (r.username || "Anonymous"),
+                        focusLevel: r.focus_level,
+                        notes: r.notes,
+                        motm: motmPlayer ? motmPlayer.name : undefined,
+                        likes: 0,
+                        timeAgo: reviewDate.date,
+                    }}
+                />
+            );
+        }),
+        [allReviewsList, currentUserId, playersById, viewerTimezone]
+    );
 
     useEffect(() => {
         if (focus === 'red') setMotm("");
@@ -185,7 +190,13 @@ export function MatchClient({
                             onClick={() => setShowAllMotm(!showAllMotm)}
                         >
                             <div className="w-7 h-7 rounded-full overflow-hidden bg-foreground/10 shrink-0 border border-border-gold/30">
-                                <img src={`https://ui-avatars.com/api/?name=${motmLeaders[0].player_name.replace(' ', '+')}&background=random`} alt="" className="w-full h-full object-cover" />
+                                <Image
+                                    src={`https://ui-avatars.com/api/?name=${motmLeaders[0].player_name.replace(' ', '+')}&background=random`}
+                                    alt=""
+                                    width={28}
+                                    height={28}
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
                             <span className="text-sm font-semibold text-foreground/80">
                                 Community MOTM: <span className="text-foreground">{motmLeaders[0].player_name}</span>
@@ -275,9 +286,15 @@ export function MatchClient({
                                     <div className="mb-8">
                                         <div className="text-sm px-3.5 py-2 min-h-10 bg-foreground/5 dark:bg-black/40 text-foreground/90 inline-flex items-center justify-center gap-2 rounded-full border border-[var(--color-border-gold)] dark:shadow-[0_0_10px_rgba(209,161,42,0.1)]">
                                             <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border border-border-gold/30">
-                                                <img src={`https://ui-avatars.com/api/?name=${allPlayers.find((p: any) => p.id === userReview.motm_player_id)?.name.replace(' ', '+')}&background=random`} alt="" className="w-full h-full object-cover" />
+                                                <Image
+                                                    src={`https://ui-avatars.com/api/?name=${playersById.get(userReview.motm_player_id)?.name.replace(' ', '+')}&background=random`}
+                                                    alt=""
+                                                    width={20}
+                                                    height={20}
+                                                    className="w-full h-full object-cover"
+                                                />
                                             </div>
-                                            <span className="font-semibold text-xs tracking-wide">MOTM: {allPlayers.find((p: any) => p.id === userReview.motm_player_id)?.name}</span>
+                                            <span className="font-semibold text-xs tracking-wide">MOTM: {playersById.get(userReview.motm_player_id)?.name}</span>
                                         </div>
                                     </div>
                                 )}
@@ -366,26 +383,7 @@ export function MatchClient({
                                 <p className="text-foreground/50 text-center max-w-[250px]">Be the first to share your thoughts and tactical analysis on this match!</p>
                             </div>
                         ) : (
-                            allReviewsList.map((r: any) => {
-                                const motmPlayer = r.motm_player_id ? allPlayers.find((p: any) => p.id === r.motm_player_id) : null;
-                                const isCurrentUser = dbUser && r.user_id === dbUser.id;
-                                const reviewDate = formatMatchDateTimeWithTimezone(r.created_at, viewerTimezone);
-
-                                return (
-                                    <ReviewCard
-                                        key={r.id}
-                                        review={{
-                                            id: r.id,
-                                            username: isCurrentUser ? "You" : (r.username || "Anonymous"),
-                                            focusLevel: r.focus_level,
-                                            notes: r.notes,
-                                            motm: motmPlayer ? motmPlayer.name : undefined,
-                                            likes: 0,
-                                            timeAgo: reviewDate.date
-                                        }}
-                                    />
-                                )
-                            })
+                            reviewCards
                         )}
                     </div>
                 </div>

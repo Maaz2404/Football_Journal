@@ -1,5 +1,6 @@
 import { fetchFromApi } from "@/lib/api";
 import { MatchClient } from "./MatchClient";
+import { auth } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
@@ -12,6 +13,7 @@ export default async function MatchPage({
 }) {
     const requestHeaders = await headers();
     const timezoneFromHeader = requestHeaders.get("x-vercel-ip-timezone") || undefined;
+    const { userId } = await auth();
 
     const { id } = await params;
     let matchData = null;
@@ -20,9 +22,9 @@ export default async function MatchPage({
 
     try {
         const [matchResult, reviewsResult, motmResult] = await Promise.allSettled([
-            fetchFromApi(`/matches/${id}`, { skipAuth: true }),
-            fetchFromApi(`/reviews/match/${id}`, { skipAuth: true }),
-            fetchFromApi(`/stats/match/${id}/motm-leader`, { skipAuth: true }),
+            fetchFromApi(`/matches/${id}`, { skipAuth: true, next: { revalidate: 30 } }),
+            fetchFromApi(`/reviews/match/${id}`, { skipAuth: true, next: { revalidate: 10 } }),
+            fetchFromApi(`/stats/match/${id}/motm-leader`, { skipAuth: true, next: { revalidate: 10 } }),
         ]);
 
         if (matchResult.status === "fulfilled") {
@@ -49,6 +51,7 @@ export default async function MatchPage({
                 initialReviews={reviewsData}
                 motmLeaders={motmLeaders}
                 viewerTimezone={timezoneFromHeader}
+                currentUserId={userId}
             />
         </div>
     );

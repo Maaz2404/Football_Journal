@@ -5,13 +5,24 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+const datePartsFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const matchDateTimeFormatterCache = new Map<string, { date: Intl.DateTimeFormat; time: Intl.DateTimeFormat }>();
+
 function datePartsFormatter(timeZone?: string) {
-    return new Intl.DateTimeFormat("en-US", {
+    const cacheKey = timeZone || "__default__";
+    const cached = datePartsFormatterCache.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
         ...(timeZone ? { timeZone } : {}),
     });
+    datePartsFormatterCache.set(cacheKey, formatter);
+    return formatter;
 }
 
 function getYmdParts(date: Date, timeZone?: string) {
@@ -57,19 +68,29 @@ export function addDaysToDateKey(dateKey: string, days: number) {
 // Server-safe formatter. If a timezone is provided, both SSR and client use the same timezone.
 export function formatMatchDateTimeWithTimezone(utcDateString: string, timeZone?: string) {
     const date = new Date(utcDateString);
-    const formatOptions = timeZone ? { timeZone } : undefined;
+    const cacheKey = timeZone || "__default__";
+    let formatters = matchDateTimeFormatterCache.get(cacheKey);
+
+    if (!formatters) {
+        const formatOptions = timeZone ? { timeZone } : undefined;
+        formatters = {
+            date: new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                day: "numeric",
+                ...formatOptions,
+            }),
+            time: new Intl.DateTimeFormat("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+                ...formatOptions,
+            }),
+        };
+        matchDateTimeFormatterCache.set(cacheKey, formatters);
+    }
 
     return {
-        date: new Intl.DateTimeFormat("en-US", {
-            month: "short",
-            day: "numeric",
-            ...formatOptions,
-        }).format(date),
-        time: new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            ...formatOptions,
-        }).format(date),
+        date: formatters.date.format(date),
+        time: formatters.time.format(date),
     };
 }

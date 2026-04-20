@@ -1,5 +1,7 @@
+import Image from "next/image";
 import { Card, CardContent } from "./ui/card";
 import { cn } from "@/lib/utils";
+import { memo } from "react";
 
 export interface ReviewProps {
     id: string | number;
@@ -11,7 +13,7 @@ export interface ReviewProps {
     timeAgo: string;
 }
 
-export function ReviewCard({ review }: { review: ReviewProps }) {
+function ReviewCardComponent({ review }: { review: ReviewProps }) {
     return (
         <Card className="mb-4 bg-card dark:bg-[#151a17] border-border dark:border-white/5 hover:bg-foreground/5 dark:hover:bg-[#1a201c] transition-colors overflow-hidden">
             <CardContent className="p-4 sm:p-5">
@@ -46,7 +48,13 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
                         {review.motm && (
                             <div className="inline-flex items-center gap-2 text-xs font-semibold text-foreground/90 bg-foreground/5 dark:bg-black/40 px-3 py-1.5 rounded-full border border-yellow-500/20 dark:border-[var(--color-border-gold)] shadow-sm dark:shadow-[0_0_10px_rgba(209,161,42,0.1)]">
                                 <div className="w-4 h-4 rounded-full overflow-hidden shrink-0 border border-border-gold/30">
-                                    <img src={`https://ui-avatars.com/api/?name=${review.motm.replace(' ', '+')}&background=random`} alt="" className="w-full h-full object-cover" />
+                                    <Image
+                                        src={`https://ui-avatars.com/api/?name=${review.motm.replace(' ', '+')}&background=random`}
+                                        alt=""
+                                        width={16}
+                                        height={16}
+                                        className="w-full h-full object-cover"
+                                    />
                                 </div>
                                 <span className="truncate">MOTM: {review.motm}</span>
                             </div>
@@ -63,3 +71,5 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
         </Card>
     );
 }
+
+export const ReviewCard = memo(ReviewCardComponent);

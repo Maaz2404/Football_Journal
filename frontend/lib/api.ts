@@ -18,11 +18,10 @@ export async function fetchFromApi(endpoint: string, options: RequestInit & { sk
         }
     }
 
-    // Prevent caching for dynamic data by default if not specified
+    // Do not force no-store globally. Callers can opt into cache/revalidate/no-store.
     const fetchOptions: RequestInit = {
         ...options,
         headers,
-        cache: options.cache || 'no-store'
     };
     // remove custom config to prevent RequestInit type errors
     delete (fetchOptions as any).skipAuth;

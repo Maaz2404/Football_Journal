@@ -48,7 +48,10 @@ export default async function HomePage({
   let error = null;
 
   try {
-    const data = await fetchFromApi(`/matches?date_from=${dateFrom}&date_to=${dateTo}`, { skipAuth: true });
+    const data = await fetchFromApi(`/matches?date_from=${dateFrom}&date_to=${dateTo}`, {
+      skipAuth: true,
+      next: { revalidate: 30 },
+    });
 
     // Map backend data to frontend props. 
     // Uses fallback formatting until backend returns team and competition names.
