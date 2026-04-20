@@ -25,7 +25,7 @@ export function MatchClient({
     initialReviews: any[],
     motmLeaders?: any[],
     viewerTimezone?: string,
-    currentUserId?: string | null,
+    currentUserId?: string | number | null,
 }) {
     const [focus, setFocus] = useState<"red" | "yellow" | "green">("green");
     const [notes, setNotes] = useState("");

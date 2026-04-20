@@ -13,7 +13,24 @@ export default async function MatchPage({
 }) {
     const requestHeaders = await headers();
     const timezoneFromHeader = requestHeaders.get("x-vercel-ip-timezone") || undefined;
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
+
+    let currentDbUserId: number | null = null;
+    if (userId) {
+        try {
+            const token = await getToken({ template: "fastapi" });
+            if (token) {
+                const me = await fetchFromApi("/auth/me", {
+                    headers: { Authorization: `Bearer ${token}` },
+                    skipAuth: true,
+                    cache: "no-store",
+                });
+                currentDbUserId = typeof me?.id === "number" ? me.id : null;
+            }
+        } catch (_e) {
+            currentDbUserId = null;
+        }
+    }
 
     const { id } = await params;
     let matchData = null;
@@ -51,7 +68,7 @@ export default async function MatchPage({
                 initialReviews={reviewsData}
                 motmLeaders={motmLeaders}
                 viewerTimezone={timezoneFromHeader}
-                currentUserId={userId}
+                currentUserId={currentDbUserId}
             />
         </div>
     );
