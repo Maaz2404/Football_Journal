@@ -67,7 +67,7 @@ export function MatchClient({
     }, [isSignedIn, getToken]);
 
     const userReview = dbUser ? initialReviews.find(r => r.user_id === dbUser.id) : null;
-    const allReviewsList = initialReviews;
+    const allReviewsList = initialReviews.filter((review) => review.notes == null || String(review.notes).trim() !== "");
 
     useEffect(() => {
         if (focus === 'red') setMotm("");
