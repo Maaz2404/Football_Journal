@@ -5,9 +5,9 @@ from core.config import get_settings
 
 settings = get_settings()
 
-BASE_URL = settings.FOOTBALL_DATA_BASE_URL
-# Keep a reasonably generous overall timeout but a slightly longer connect timeout
-TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+BASE_URL = settings.FOOTBALL_DATA_BASE_URL.rstrip("/")
+# Keep a generous overall timeout with a slightly longer connect timeout
+TIMEOUT = httpx.Timeout(45.0, connect=15.0)
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,8 @@ headers = {"X-Auth-Token": settings.FOOTBALL_DATA_API_KEY}
 
 
 async def _get(endpoint: str, params: dict | None = None, max_retries: int = 3):
-    url = f"{BASE_URL}{endpoint}"
+    endpoint = endpoint.lstrip("/")
+    url = f"{BASE_URL}/{endpoint}"
     backoff = 1.0
     for attempt in range(1, max_retries + 1):
         try:
@@ -34,6 +35,14 @@ async def _get(endpoint: str, params: dict | None = None, max_retries: int = 3):
             # Server responded with 4xx/5xx — no point in retrying immediately for 4xx
             status = e.response.status_code
             logger.error("HTTP error fetching %s: %s", url, e)
+            if status == 429 and attempt < max_retries:
+                retry_after = e.response.headers.get("Retry-After")
+                if retry_after and retry_after.isdigit():
+                    await asyncio.sleep(float(retry_after))
+                else:
+                    await asyncio.sleep(backoff)
+                    backoff *= 2
+                continue
             if 500 <= status < 600 and attempt < max_retries:
                 # server error — retry
                 await asyncio.sleep(backoff)
