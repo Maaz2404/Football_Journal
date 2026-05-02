@@ -12,7 +12,10 @@ TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 logger = logging.getLogger(__name__)
 
 # Use a shared AsyncClient to benefit from connection pooling across requests
-CLIENT = httpx.AsyncClient(timeout=TIMEOUT, limits=httpx.Limits(max_connections=10, max_keepalive=5))
+CLIENT = httpx.AsyncClient(
+    timeout=TIMEOUT,
+    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+)
 
 headers = {"X-Auth-Token": settings.FOOTBALL_DATA_API_KEY}
 
