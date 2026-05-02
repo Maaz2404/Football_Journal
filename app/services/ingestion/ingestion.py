@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import date, timedelta
 from sqlmodel import select
 
@@ -10,6 +11,8 @@ from services.ingestion.competitions import ingest_competition
 from services.ingestion.teams import ingest_competition_teams_and_squads
 from services.ingestion.matches import ingest_competition_matches
 from models.competition import Competition
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_COMPETITIONS = ["PL", "CL", "FL1", "SA", "PD", "BL1"]
 
@@ -55,12 +58,16 @@ async def ingest_matches_job():
         competitions = (await session.execute(select(Competition))).scalars().all()
 
         for comp in competitions:
-            await ingest_competition_matches(
-                session,
-                comp,
-                date_from=date.today() - timedelta(days=7),
-                date_to=date.today()
-            )
+            try:
+                await ingest_competition_matches(
+                    session,
+                    comp,
+                    date_from=date.today() - timedelta(days=7),
+                    date_to=date.today(),
+                )
+            except Exception:
+                # Log and continue with next competition rather than aborting whole job
+                logger.exception("Failed to ingest matches for competition %s", getattr(comp, "code", comp))
 
     print("Match ingestion finished.")
 

@@ -8,6 +8,7 @@ from time import perf_counter
 import logging
 import os
 import uvicorn
+from services.api_football_data import CLIENT as API_CLIENT
 
 settings = get_settings()
 logger = logging.getLogger("uvicorn.error")
@@ -21,7 +22,11 @@ async def lifespan(app: FastAPI):
         await init_db()
     yield
     # --- shutdown ---
-    # (close db connections later if needed)
+    # Close shared HTTPX client from api_football_data if available
+    try:
+        await API_CLIENT.aclose()
+    except Exception:
+        logger.exception("Error closing API HTTP client")
 
 
 app = FastAPI(
