@@ -55,7 +55,15 @@ async def ingest_matches_job():
     print("Running match ingestion...")
 
     async with AsyncSessionLocal() as session:
-        competitions = (await session.execute(select(Competition))).scalars().all()
+        try:
+            competitions = (await session.execute(select(Competition))).scalars().all()
+        except Exception:
+            logger.exception("Failed to load competitions for match ingestion")
+            raise
+
+        if not competitions:
+            print("No competitions found; skipping match ingestion.")
+            return
 
         for comp in competitions:
             try:

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import traceback
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
@@ -59,8 +60,14 @@ async def trigger():
             print("✅ Ingestion completed")
             return {"status": "completed"}
         except Exception as e:
-            print(f"❌ Ingestion failed: {e}")
-            return {"status": "error", "detail": str(e)}
+            detail = str(e) or repr(e)
+            print(f"❌ Ingestion failed: {detail}")
+            traceback.print_exc()
+            return {
+                "status": "error",
+                "detail": detail,
+                "error_type": type(e).__name__,
+            }
 
 
 if __name__ == "__main__":
