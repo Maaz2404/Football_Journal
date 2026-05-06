@@ -4,6 +4,7 @@ import traceback
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
 
 from services.ingestion.ingestion import scheduler_main, ingest_matches_job
 
@@ -39,7 +40,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+origins = [
+    "http://localhost:3000",          # Next.js local dev
+    "https://futbook.vercel.app", 
+    "https://www.footbook.app",
+    "https://footbook.app",
+    "https://dashboard.uptimerobot.com/"
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Health check (Render + UptimeRobot)
 @app.api_route("/", methods=["GET", "HEAD"])

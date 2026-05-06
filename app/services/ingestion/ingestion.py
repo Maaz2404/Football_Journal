@@ -104,10 +104,10 @@ def start_scheduler():
     #     coalesce=True,
     # )
 
-    # Matches: every hour
+    # Matches: every 5 minutes
     scheduler.add_job(
         ingest_matches_job,
-        CronTrigger(minute=0),
+        CronTrigger(minute="*/5"),
         name="matches_ingestion",
         max_instances=1,
         coalesce=True,
