@@ -64,10 +64,6 @@ async def health_check():
     return {"status": "running"}
 
 
-# Manual / automated trigger
-@app.api_route("/trigger", methods=["GET", "HEAD"])
-
-
 @app.api_route("/trigger", methods=["GET", "HEAD"])
 async def trigger():
     if job_lock.locked():
