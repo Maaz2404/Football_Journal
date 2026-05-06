@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import httpx 
 
 from services.ingestion.ingestion import scheduler_main, ingest_matches_job
 
@@ -64,25 +66,53 @@ async def health_check():
 
 # Manual / automated trigger
 @app.api_route("/trigger", methods=["GET", "HEAD"])
+
+
+@app.api_route("/trigger", methods=["GET", "HEAD"])
 async def trigger():
     if job_lock.locked():
         return {"status": "skipped", "reason": "job already running"}
-
+    
     async with job_lock:
-        try:
-            print("🚀 Running ingestion job...")
-            await ingest_matches_job()
-            print("✅ Ingestion completed")
-            return {"status": "completed"}
-        except Exception as e:
-            detail = str(e) or repr(e)
-            print(f"❌ Ingestion failed: {detail}")
-            traceback.print_exc()
-            return {
-                "status": "error",
-                "detail": detail,
-                "error_type": type(e).__name__,
-            }
+        # 1. Warm-up delay: Give Render's container network a moment 
+        # to fully initialize if Uptime Robot just woke it up.
+        print("⏳ Waiting for network stability...")
+        await asyncio.sleep(5)
+
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                print(f"🚀 Running ingestion job (Attempt {attempt + 1})...")
+                await ingest_matches_job()
+                
+                print("✅ Ingestion completed")
+                return {"status": "completed"}
+
+            except (httpx.ConnectTimeout, httpx.ConnectError) as net_err:
+                # Specific handling for the Render "Cold Start" connection issue
+                print(f"⚠️ Connection attempt {attempt + 1} failed: {net_err}")
+                if attempt < max_retries - 1:
+                    wait_time = 10
+                    print(f"🔄 Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    return {
+                        "status": "error",
+                        "detail": "Network timeout after multiple attempts. Render might be struggling to connect.",
+                        "error_type": type(net_err).__name__
+                    }
+
+            except Exception as e:
+                # Catch-all for other logic errors
+                detail = str(e) or repr(e)
+                print(f"❌ Ingestion failed: {detail}")
+                traceback.print_exc()
+                return {
+                    "status": "error",
+                    "detail": detail,
+                    "error_type": type(e).__name__,
+                }
+
 
 
 if __name__ == "__main__":
