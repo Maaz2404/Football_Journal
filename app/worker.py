@@ -2,7 +2,7 @@ import asyncio
 import os
 import traceback
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
@@ -65,7 +65,9 @@ async def health_check():
 
 
 @app.api_route("/trigger", methods=["GET", "HEAD"])
-async def trigger():
+async def trigger(request: Request):
+    if request.method == "HEAD":
+        return {"status": "ok"}
     if job_lock.locked():
         return {"status": "skipped", "reason": "job already running"}
     
